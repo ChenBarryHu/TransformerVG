@@ -8,4 +8,4 @@ https://github.com/daveredrum/ScanRefer
 https://github.com/facebookresearch/3detr
 
 ## License
-ScanRefer is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License](LICENSE).
+This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License](LICENSE).
