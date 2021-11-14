@@ -1,7 +1,7 @@
 # 3dvg-trasnformer: 3D Visual grounding using transformer
 
 ## Acknowledgement
-This work is a research project conducted by Erik Schütz and Shichen Hu for ADL4CV:Visual Computing course at Technical University of Munich.
+This work is a research project conducted by Erik Schütz and Shichen Hu for ADL4CV:Visual Computing course at the Technical University of Munich.
 
 We acknowledge that our work is based on ScanRefer and 3DETR:
 https://github.com/daveredrum/ScanRefer
