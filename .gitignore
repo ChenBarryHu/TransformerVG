@@ -10,6 +10,7 @@ scans
 enet_features
 data/scannet/tasks/
 data/frames_square/
+3detr/datasets/scannet/
 
 # cache
 data/scannet/__pycache__
