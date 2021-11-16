@@ -1,7 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import math
 import sys
-sys.path.insert(1, "E:/Daten/Dokumente/GitHub/3dvg-transformer/lib")
+sys.path.insert(1, "/home/shichenhu/3dvg-transformer/lib")
 from functools import partial
 
 import numpy as np
@@ -18,7 +18,6 @@ from models.position_embedding import PositionEmbeddingCoordsSine
 from models.transformer import (MaskedTransformerEncoder, TransformerDecoder,
                                 TransformerDecoderLayer, TransformerEncoder,
                                 TransformerEncoderLayer)
-
 
 class BoxProcessor(object):
     """

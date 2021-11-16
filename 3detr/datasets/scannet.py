@@ -20,8 +20,8 @@ from utils.random_cuboid import RandomCuboid
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "E:/Daten/ADL4CV/Projekt/Code/ScanRefer/data/scannet/scannet_data"  ## Replace with path to dataset
-DATASET_METADATA_DIR = "E:/Daten/ADL4CV/Projekt/Code/ScanRefer/data/scannet/meta_data" ## Replace with path to dataset
+DATASET_ROOT_DIR = "/home/shichenhu/3dvg-transformer/3detr/datasets/scannet/scannet_train_detection_data"  ## Replace with path to dataset
+DATASET_METADATA_DIR = "/home/shichenhu/ScanRefer/data/scannet/meta_data/" ## Replace with path to dataset
 
 
 class ScannetDatasetConfig(object):
@@ -59,7 +59,7 @@ class ScannetDatasetConfig(object):
         #}
 
         lines = [line.rstrip() for line in
-                 open('E:/Daten/ADL4CV/Projekt/Code/ScanRefer/data/scannet/meta_data/scannetv2-labels.combined.tsv')]
+                 open('/home/shichenhu/ScanRefer/data/scannet/meta_data/scannetv2-labels.combined.tsv')]
         lines = lines[1:]
         self.nyu40id2class = {}
         for i in range(len(lines)):
