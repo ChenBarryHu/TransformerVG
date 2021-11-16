@@ -79,7 +79,10 @@ def all_reduce_sum(tensor):
 
 def all_reduce_average(tensor):
     val = all_reduce_sum(tensor)
-    return val / get_world_size()
+    if not is_distributed():
+        return val
+    else:
+        return val / get_world_size()
 
 
 # Function from DETR - https://github.com/facebookresearch/detr/blob/master/util/misc.py

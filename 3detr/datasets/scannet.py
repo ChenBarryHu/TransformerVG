@@ -20,15 +20,15 @@ from utils.random_cuboid import RandomCuboid
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = ""  ## Replace with path to dataset
-DATASET_METADATA_DIR = "" ## Replace with path to dataset
+DATASET_ROOT_DIR = "E:/Daten/ADL4CV/Projekt/Code/ScanRefer/data/scannet/scannet_data"  ## Replace with path to dataset
+DATASET_METADATA_DIR = "E:/Daten/ADL4CV/Projekt/Code/ScanRefer/data/scannet/meta_data" ## Replace with path to dataset
 
 
 class ScannetDatasetConfig(object):
     def __init__(self):
         self.num_semcls = 18
         self.num_angle_bin = 1
-        self.max_num_obj = 64
+        self.max_num_obj = 128
 
         self.type2class = {
             "cabinet": 0,
@@ -48,15 +48,30 @@ class ScannetDatasetConfig(object):
             "toilet": 14,
             "sink": 15,
             "bathtub": 16,
-            "garbagebin": 17,
+            "others": 17,
         }
         self.class2type = {self.type2class[t]: t for t in self.type2class}
         self.nyu40ids = np.array(
-            [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
+            [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
         )
-        self.nyu40id2class = {
-            nyu40id: i for i, nyu40id in enumerate(list(self.nyu40ids))
-        }
+        #self.nyu40id2class = {
+        #    nyu40id: i for i, nyu40id in enumerate(list(self.nyu40ids))
+        #}
+
+        lines = [line.rstrip() for line in
+                 open('E:/Daten/ADL4CV/Projekt/Code/ScanRefer/data/scannet/meta_data/scannetv2-labels.combined.tsv')]
+        lines = lines[1:]
+        self.nyu40id2class = {}
+        for i in range(len(lines)):
+            label_classes_set = set(self.type2class.keys())
+            elements = lines[i].split('\t')
+            nyu40_id = int(elements[4])
+            nyu40_name = elements[7]
+            if nyu40_id in self.nyu40ids:
+                if nyu40_name not in label_classes_set:
+                    self.nyu40id2class[nyu40_id] = self.type2class["others"]
+                else:
+                    self.nyu40id2class[nyu40_id] = self.type2class[nyu40_name]
 
         # Semantic Segmentation Classes. Not used in 3DETR
         self.num_class_semseg = 20
@@ -86,7 +101,7 @@ class ScannetDatasetConfig(object):
             self.type2class_semseg[t]: t for t in self.type2class_semseg
         }
         self.nyu40ids_semseg = np.array(
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
+            [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
         )
         self.nyu40id2class_semseg = {
             nyu40id: i for i, nyu40id in enumerate(list(self.nyu40ids_semseg))
@@ -345,7 +360,7 @@ class ScannetDetectionDataset(Dataset):
         target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
         target_bboxes_semcls[0 : instance_bboxes.shape[0]] = [
             self.dataset_config.nyu40id2class[x]
-            for x in instance_bboxes[:, -1][0 : instance_bboxes.shape[0]]
+            for x in instance_bboxes[:, -2][0 : instance_bboxes.shape[0]]
         ]
         ret_dict["gt_box_sem_cls_label"] = target_bboxes_semcls.astype(np.int64)
         ret_dict["gt_box_present"] = target_bboxes_mask.astype(np.float32)

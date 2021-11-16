@@ -1,12 +1,16 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import math
+import sys
+sys.path.insert(1, "E:/Daten/Dokumente/GitHub/3dvg-transformer/lib")
 from functools import partial
 
 import numpy as np
 import torch
 import torch.nn as nn
-from third_party.pointnet2.pointnet2_modules import PointnetSAModuleVotes
-from third_party.pointnet2.pointnet2_utils import furthest_point_sample
+
+
+from lib.pointnet2.pointnet2_modules import PointnetSAModuleVotes
+from lib.pointnet2.pointnet2_utils import furthest_point_sample
 from utils.pc_util import scale_points, shift_scale_points
 
 from models.helpers import GenericMLP
