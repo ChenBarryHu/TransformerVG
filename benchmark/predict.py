@@ -48,6 +48,7 @@ def get_model(args, config):
     # load model
     input_channels = int(args.use_multiview) * 128 + int(args.use_normal) * 3 + int(args.use_color) * 3 + int(not args.no_height)
     model = RefNet(
+        args=args,  #Added Args for creation of 3DETR
         num_class=config.num_class,
         num_heading_bin=config.num_heading_bin,
         num_size_cluster=config.num_size_cluster,

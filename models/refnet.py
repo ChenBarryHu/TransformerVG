@@ -5,14 +5,20 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
+
 from models.backbone_module import Pointnet2Backbone
 from models.voting_module import VotingModule
 from models.proposal_module import ProposalModule
 from models.lang_module import LangModule
 from models.match_module import MatchModule
 
+sys.path.insert(1, "E:/Daten/Dokumente/GitHub/3dvg-transformer/_3detr")
+#from _3detr.models.model_3detr import Model3DETR
+#from _3detr.models import build_model
+import _3detr
+
 class RefNet(nn.Module):
-    def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, 
+    def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, args,
     input_feature_dim=0, num_proposal=128, vote_factor=1, sampling="vote_fps",
     use_lang_classifier=True, use_bidir=False, no_reference=False,
     emb_size=300, hidden_size=256):
@@ -41,6 +47,12 @@ class RefNet(nn.Module):
 
         # Vote aggregation and object proposal
         self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
+
+        # ------------- PROPOSAL GENERATION WITH 3DETR -------------
+
+        #_3detr.models.build_3detr()
+
+        # ----------------------------------------------------------
 
         if not no_reference:
             # --------- LANGUAGE ENCODING ---------
