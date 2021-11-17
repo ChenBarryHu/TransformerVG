@@ -20,7 +20,8 @@ from utils.random_cuboid import RandomCuboid
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "/home/shichenhu/3dvg-transformer/3detr/datasets/scannet/scannet_train_detection_data"  ## Replace with path to dataset
+#DATASET_ROOT_DIR = "/home/shichenhu/3dvg-transformer/3detr/datasets/scannet/scannet_train_detection_data"  ## Replace with path to dataset
+DATASET_ROOT_DIR = "/home/shichenhu/ScanRefer/data/scannet/scannet_data"
 DATASET_METADATA_DIR = "/home/shichenhu/ScanRefer/data/scannet/meta_data/" ## Replace with path to dataset
 
 
