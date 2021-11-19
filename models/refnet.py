@@ -206,9 +206,24 @@ class RefNet(nn.Module):
             "point_cloud_dims_min": data_dict["point_cloud_dims_min"],
             "point_cloud_dims_max": data_dict["point_cloud_dims_max"],
         }
-        self.detr(inputs)
+        # print(data_dict["point_clouds"].shape)
+        output = self.detr(inputs)
+        # print(f"output.keys(): {output.keys()}")
+        # print("features from 3detr:")
+        # print(output["outputs"]["scanrefer_features"].shape)
+        # print("objectness_masks from 3detr:")
+        # print("3detr logits shape:")
+        # print(output["outputs"]["sem_cls_logits"].shape)
+        objectness_masks_3detr = output["outputs"]["sem_cls_logits"][:,:,-1] < 0.5
+        objectness_masks_3detr = objectness_masks_3detr.int()
+        print("objectness_masks_3detr.shape:")
+        print(objectness_masks_3detr.shape)
+        # print(objectness_masks_3detr)
+
+
+        # print()
         data_dict = self.backbone_net(data_dict)
-                
+        
         # --------- HOUGH VOTING ---------
         xyz = data_dict["fp2_xyz"]
         features = data_dict["fp2_features"]
@@ -223,7 +238,9 @@ class RefNet(nn.Module):
         data_dict["vote_features"] = features
         # --------- PROPOSAL GENERATION ---------
         data_dict = self.proposal(xyz, features, data_dict)
-
+        # print(data_dict["aggregated_vote_xyz"].shape)
+        # print(data_dict["aggregated_vote_features"].shape)
+        
         if not self.no_reference:
             #######################################
             #                                     #

@@ -37,3 +37,6 @@ demo/.DS_Store
 
 # misc
 upload/
+
+# vscode
+.vscode/

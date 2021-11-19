@@ -1,23 +1,20 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
+from _3detr.models.transformer import (MaskedTransformerEncoder, TransformerDecoder,
+                                       TransformerDecoderLayer, TransformerEncoder,
+                                       TransformerEncoderLayer)
+from _3detr.models.position_embedding import PositionEmbeddingCoordsSine
+from _3detr.models.helpers import GenericMLP
+from _3detr.utils.pc_util import scale_points, shift_scale_points
+from lib.pointnet2.pointnet2_utils import furthest_point_sample
+from lib.pointnet2.pointnet2_modules import PointnetSAModuleVotes
+import torch.nn as nn
+import torch
+import numpy as np
+from functools import partial
 import math
 import sys
 sys.path.insert(1, "/home/shichenhu/3dvg-transformer/lib")
-from functools import partial
 
-import numpy as np
-import torch
-import torch.nn as nn
-
-
-from lib.pointnet2.pointnet2_modules import PointnetSAModuleVotes
-from lib.pointnet2.pointnet2_utils import furthest_point_sample
-from _3detr.utils.pc_util import scale_points, shift_scale_points
-
-from _3detr.models.helpers import GenericMLP
-from _3detr.models.position_embedding import PositionEmbeddingCoordsSine
-from _3detr.models.transformer import (MaskedTransformerEncoder, TransformerDecoder,
-                                TransformerDecoderLayer, TransformerEncoder,
-                                TransformerEncoderLayer)
 
 class BoxProcessor(object):
     """
@@ -37,7 +34,8 @@ class BoxProcessor(object):
     def compute_predicted_size(self, size_normalized, point_cloud_dims):
         scene_scale = point_cloud_dims[1] - point_cloud_dims[0]
         scene_scale = torch.clamp(scene_scale, min=1e-1)
-        size_unnormalized = scale_points(size_normalized, mult_factor=scene_scale)
+        size_unnormalized = scale_points(
+            size_normalized, mult_factor=scene_scale)
         return size_unnormalized
 
     def compute_predicted_angle(self, angle_logits, angle_residual):
@@ -147,6 +145,14 @@ class Model3DETR(nn.Module):
             input_dim=decoder_dim,
         )
 
+        mlp_func_feature = partial(
+            GenericMLP,
+            use_conv=True,
+            hidden_dims=[],
+            dropout=mlp_dropout,
+            input_dim=decoder_dim,
+        )
+
         # Semantic class of the box
         # add 1 for background/not-an-object class
         semcls_head = mlp_func(output_dim=dataset_config.num_semcls + 1)
@@ -156,6 +162,7 @@ class Model3DETR(nn.Module):
         size_head = mlp_func(output_dim=3)
         angle_cls_head = mlp_func(output_dim=dataset_config.num_angle_bin)
         angle_reg_head = mlp_func(output_dim=dataset_config.num_angle_bin)
+        feature_head = mlp_func_feature(output_dim=128)
 
         mlp_heads = [
             ("sem_cls_head", semcls_head),
@@ -163,13 +170,15 @@ class Model3DETR(nn.Module):
             ("size_head", size_head),
             ("angle_cls_head", angle_cls_head),
             ("angle_residual_head", angle_reg_head),
+            ("feature_head", feature_head)
         ]
         self.mlp_heads = nn.ModuleDict(mlp_heads)
 
     def get_query_embeddings(self, encoder_xyz, point_cloud_dims):
         query_inds = furthest_point_sample(encoder_xyz, self.num_queries)
         query_inds = query_inds.long()
-        query_xyz = [torch.gather(encoder_xyz[..., x], 1, query_inds) for x in range(3)]
+        query_xyz = [torch.gather(encoder_xyz[..., x], 1, query_inds)
+                     for x in range(3)]
         query_xyz = torch.stack(query_xyz)
         query_xyz = query_xyz.permute(1, 2, 0)
 
@@ -185,24 +194,28 @@ class Model3DETR(nn.Module):
         # pc may contain color/normals.
 
         xyz = pc[..., 0:3].contiguous()
-        features = pc[..., 3:].transpose(1, 2).contiguous() if pc.size(-1) > 3 else None
+        features = pc[..., 3:].transpose(
+            1, 2).contiguous() if pc.size(-1) > 3 else None
         return xyz, features
 
     def run_encoder(self, point_clouds):
         xyz, features = self._break_up_pc(point_clouds)
-        pre_enc_xyz, pre_enc_features, pre_enc_inds = self.pre_encoder(xyz, features)
+        # print(f"xyz dimension: {xyz.shape}")
+        # print(f"features dimension: {features.shape}")
+        pre_enc_xyz, pre_enc_features, pre_enc_inds = self.pre_encoder(
+            xyz, features)
         # xyz: batch x npoints x 3
         # features: batch x channel x npoints
         # inds: batch x npoints
-
+        # print("finish pre_encoder")
         # nn.MultiHeadAttention in encoder expects npoints x batch x channel features
         pre_enc_features = pre_enc_features.permute(2, 0, 1)
-        print(f"pre_enc_features dim:{pre_enc_features.shape}")
+        # print(f"pre_enc_features dim:{pre_enc_features.shape}")
         # xyz points are in batch x npointx channel order
         enc_xyz, enc_features, enc_inds = self.encoder(
             pre_enc_features, xyz=pre_enc_xyz
         )
-        print(f"enc_features dim:{enc_features.shape}")
+        # print(f"enc_features dim:{enc_features.shape}")
         if enc_inds is None:
             # encoder does not perform any downsampling
             enc_inds = pre_enc_inds
@@ -222,32 +235,41 @@ class Model3DETR(nn.Module):
         """
         # box_features change to (num_layers x batch) x channel x num_queries
         box_features = box_features.permute(0, 2, 3, 1)
-        print(f"box_features dimension: {box_features.shape}")
+        # print(f"box_features dimension: {box_features.shape}")
         num_layers, batch, channel, num_queries = (
             box_features.shape[0],
             box_features.shape[1],
             box_features.shape[2],
             box_features.shape[3],
         )
-        box_features = box_features.reshape(num_layers * batch, channel, num_queries)
+        box_features = box_features.reshape(
+            num_layers * batch, channel, num_queries)
 
         # mlp head outputs are (num_layers x batch) x noutput x nqueries, so transpose last two dims
-        cls_logits = self.mlp_heads["sem_cls_head"](box_features).transpose(1, 2)
+        scanrefer_features = self.mlp_heads["feature_head"](
+            box_features).transpose(1, 2)
+        cls_logits = self.mlp_heads["sem_cls_head"](
+            box_features).transpose(1, 2)
         center_offset = (
-            self.mlp_heads["center_head"](box_features).sigmoid().transpose(1, 2) - 0.5
+            self.mlp_heads["center_head"](
+                box_features).sigmoid().transpose(1, 2) - 0.5
         )
         size_normalized = (
             self.mlp_heads["size_head"](box_features).sigmoid().transpose(1, 2)
         )
-        angle_logits = self.mlp_heads["angle_cls_head"](box_features).transpose(1, 2)
+        angle_logits = self.mlp_heads["angle_cls_head"](
+            box_features).transpose(1, 2)
         angle_residual_normalized = self.mlp_heads["angle_residual_head"](
             box_features
         ).transpose(1, 2)
 
         # reshape outputs to num_layers x batch x nqueries x noutput
+        scanrefer_features = scanrefer_features.reshape(num_layers, batch, num_queries, -1)
         cls_logits = cls_logits.reshape(num_layers, batch, num_queries, -1)
-        center_offset = center_offset.reshape(num_layers, batch, num_queries, -1)
-        size_normalized = size_normalized.reshape(num_layers, batch, num_queries, -1)
+        center_offset = center_offset.reshape(
+            num_layers, batch, num_queries, -1)
+        size_normalized = size_normalized.reshape(
+            num_layers, batch, num_queries, -1)
         angle_logits = angle_logits.reshape(num_layers, batch, num_queries, -1)
         angle_residual_normalized = angle_residual_normalized.reshape(
             num_layers, batch, num_queries, -1
@@ -284,6 +306,7 @@ class Model3DETR(nn.Module):
                 ) = self.box_processor.compute_objectness_and_cls_prob(cls_logits[l])
 
             box_prediction = {
+                "scanrefer_features": scanrefer_features[l],
                 "sem_cls_logits": cls_logits[l],
                 "center_normalized": center_normalized.contiguous(),
                 "center_unnormalized": center_unnormalized,
@@ -302,10 +325,10 @@ class Model3DETR(nn.Module):
         # intermediate decoder layer outputs are only used during training
         aux_outputs = outputs[:-1]
         outputs = outputs[-1]
-        print("center_unnormalized dimensions:")
-        print(outputs["center_unnormalized"].shape)
-        print("size_unnormalized dimensions:")
-        print(outputs["size_unnormalized"].shape)
+        # print("center_unnormalized dimensions:")
+        # print(outputs["center_unnormalized"].shape)
+        # print("size_unnormalized dimensions:")
+        # print(outputs["size_unnormalized"].shape)
 
         return {
             "outputs": outputs,  # output from last layer of decoder
@@ -330,7 +353,8 @@ class Model3DETR(nn.Module):
             inputs["point_cloud_dims_min"],
             inputs["point_cloud_dims_max"],
         ]
-        query_xyz, query_embed = self.get_query_embeddings(enc_xyz, point_cloud_dims)
+        query_xyz, query_embed = self.get_query_embeddings(
+            enc_xyz, point_cloud_dims)
         # query_embed: batch x channel x npoint
         enc_pos = self.pos_embedding(enc_xyz, input_range=point_cloud_dims)
 
@@ -387,7 +411,7 @@ def build_encoder(args):
             mlp=[args.enc_dim, 256, 256, args.enc_dim],
             normalize_xyz=True,
         )
-        
+
         masking_radius = [math.pow(x, 2) for x in [0.4, 0.8, 1.2]]
         encoder = MaskedTransformerEncoder(
             encoder_layer=encoder_layer,
