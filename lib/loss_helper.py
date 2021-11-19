@@ -14,58 +14,73 @@ from utils.nn_distance import nn_distance, huber_loss
 from lib.ap_helper import parse_predictions
 from lib.loss import SoftmaxRankingLoss
 from utils.box_util import get_3d_box, get_3d_box_batch, box3d_iou, box3d_iou_batch
+from _3detr.criterion import build_criterion
+from _3detr.main import make_args_parser
+import _3detr.datasets.scannet as detr_scannet
+from _3detr.utils.dist import (
+    all_reduce_average,
+    reduce_dict,
+)
+
+
+detr_DC = detr_scannet.ScannetDatasetConfig()
+detr_parser = make_args_parser()
+detr_args = detr_parser.parse_args()
 
 FAR_THRESHOLD = 0.6
 NEAR_THRESHOLD = 0.3
 GT_VOTE_FACTOR = 3 # number of GT votes per point
 OBJECTNESS_CLS_WEIGHTS = [0.2, 0.8] # put larger weights on positive objectness
 
-def compute_vote_loss(data_dict):
-    """ Compute vote loss: Match predicted votes to GT votes.
+# def compute_vote_loss(data_dict):
+#     """ Compute vote loss: Match predicted votes to GT votes.
 
-    Args:
-        data_dict: dict (read-only)
+#     Args:
+#         data_dict: dict (read-only)
     
-    Returns:
-        vote_loss: scalar Tensor
+#     Returns:
+#         vote_loss: scalar Tensor
             
-    Overall idea:
-        If the seed point belongs to an object (votes_label_mask == 1),
-        then we require it to vote for the object center.
+#     Overall idea:
+#         If the seed point belongs to an object (votes_label_mask == 1),
+#         then we require it to vote for the object center.
 
-        Each seed point may vote for multiple translations v1,v2,v3
-        A seed point may also be in the boxes of multiple objects:
-        o1,o2,o3 with corresponding GT votes c1,c2,c3
+#         Each seed point may vote for multiple translations v1,v2,v3
+#         A seed point may also be in the boxes of multiple objects:
+#         o1,o2,o3 with corresponding GT votes c1,c2,c3
 
-        Then the loss for this seed point is:
-            min(d(v_i,c_j)) for i=1,2,3 and j=1,2,3
-    """
+#         Then the loss for this seed point is:
+#             min(d(v_i,c_j)) for i=1,2,3 and j=1,2,3
+#     """
 
-    # Load ground truth votes and assign them to seed points
-    batch_size = data_dict['seed_xyz'].shape[0]
-    num_seed = data_dict['seed_xyz'].shape[1] # B,num_seed,3
-    vote_xyz = data_dict['vote_xyz'] # B,num_seed*vote_factor,3
-    seed_inds = data_dict['seed_inds'].long() # B,num_seed in [0,num_points-1]
+#     # Load ground truth votes and assign them to seed points
+#     batch_size = data_dict['seed_xyz'].shape[0]
+#     num_seed = data_dict['seed_xyz'].shape[1] # B,num_seed,3
+#     vote_xyz = data_dict['vote_xyz'] # B,num_seed*vote_factor,3
+#     seed_inds = data_dict['seed_inds'].long() # B,num_seed in [0,num_points-1]
 
-    # Get groundtruth votes for the seed points
-    # vote_label_mask: Use gather to select B,num_seed from B,num_point
-    #   non-object point has no GT vote mask = 0, object point has mask = 1
-    # vote_label: Use gather to select B,num_seed,9 from B,num_point,9
-    #   with inds in shape B,num_seed,9 and 9 = GT_VOTE_FACTOR * 3
-    seed_gt_votes_mask = torch.gather(data_dict['vote_label_mask'], 1, seed_inds)
-    seed_inds_expand = seed_inds.view(batch_size,num_seed,1).repeat(1,1,3*GT_VOTE_FACTOR)
-    seed_gt_votes = torch.gather(data_dict['vote_label'], 1, seed_inds_expand)
-    seed_gt_votes += data_dict['seed_xyz'].repeat(1,1,3)
+#     # Get groundtruth votes for the seed points
+#     # vote_label_mask: Use gather to select B,num_seed from B,num_point
+#     #   non-object point has no GT vote mask = 0, object point has mask = 1
+#     # vote_label: Use gather to select B,num_seed,9 from B,num_point,9
+#     #   with inds in shape B,num_seed,9 and 9 = GT_VOTE_FACTOR * 3
+#     seed_gt_votes_mask = torch.gather(data_dict['vote_label_mask'], 1, seed_inds)
+#     seed_inds_expand = seed_inds.view(batch_size,num_seed,1).repeat(1,1,3*GT_VOTE_FACTOR)
+#     seed_gt_votes = torch.gather(data_dict['vote_label'], 1, seed_inds_expand)
+#     seed_gt_votes += data_dict['seed_xyz'].repeat(1,1,3)
 
-    # Compute the min of min of distance
-    vote_xyz_reshape = vote_xyz.view(batch_size*num_seed, -1, 3) # from B,num_seed*vote_factor,3 to B*num_seed,vote_factor,3
-    seed_gt_votes_reshape = seed_gt_votes.view(batch_size*num_seed, GT_VOTE_FACTOR, 3) # from B,num_seed,3*GT_VOTE_FACTOR to B*num_seed,GT_VOTE_FACTOR,3
-    # A predicted vote to no where is not penalized as long as there is a good vote near the GT vote.
-    dist1, _, dist2, _ = nn_distance(vote_xyz_reshape, seed_gt_votes_reshape, l1=True)
-    votes_dist, _ = torch.min(dist2, dim=1) # (B*num_seed,vote_factor) to (B*num_seed,)
-    votes_dist = votes_dist.view(batch_size, num_seed)
-    vote_loss = torch.sum(votes_dist*seed_gt_votes_mask.float())/(torch.sum(seed_gt_votes_mask.float())+1e-6)
-    return vote_loss
+#     # Compute the min of min of distance
+#     vote_xyz_reshape = vote_xyz.view(batch_size*num_seed, -1, 3) # from B,num_seed*vote_factor,3 to B*num_seed,vote_factor,3
+#     seed_gt_votes_reshape = seed_gt_votes.view(batch_size*num_seed, GT_VOTE_FACTOR, 3) # from B,num_seed,3*GT_VOTE_FACTOR to B*num_seed,GT_VOTE_FACTOR,3
+#     # A predicted vote to no where is not penalized as long as there is a good vote near the GT vote.
+#     dist1, _, dist2, _ = nn_distance(vote_xyz_reshape, seed_gt_votes_reshape, l1=True)
+#     votes_dist, _ = torch.min(dist2, dim=1) # (B*num_seed,vote_factor) to (B*num_seed,)
+#     votes_dist = votes_dist.view(batch_size, num_seed)
+#     vote_loss = torch.sum(votes_dist*seed_gt_votes_mask.float())/(torch.sum(seed_gt_votes_mask.float())+1e-6)
+#     return vote_loss
+
+def compute_vote_loss(data_dict):
+    return torch.tensor(0,dtype=torch.float32)
 
 def compute_objectness_loss(data_dict):
     """ Compute objectness loss for the proposals.
@@ -199,16 +214,32 @@ def compute_reference_loss(data_dict, config):
     cluster_preds = data_dict["cluster_ref"] # (B, num_proposal)
 
     # predicted bbox
-    pred_ref = data_dict['cluster_ref'].detach().cpu().numpy() # (B,)
-    pred_center = data_dict['center'].detach().cpu().numpy() # (B,K,3)
-    pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
-    pred_heading_residual = torch.gather(data_dict['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
-    pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
-    pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
-    pred_size_class = torch.argmax(data_dict['size_scores'], -1) # B,num_proposal
-    pred_size_residual = torch.gather(data_dict['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-    pred_size_class = pred_size_class.detach().cpu().numpy()
-    pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
+    # pred_ref = data_dict['cluster_ref'].detach().cpu().numpy() # (B,)
+    # pred_center = data_dict['center'].detach().cpu().numpy() # (B,K,3)
+    # pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
+    # pred_heading_residual = torch.gather(data_dict['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
+    # pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
+    # pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
+    # pred_size_class = torch.argmax(data_dict['size_scores'], -1) # B,num_proposal
+    # pred_size_residual = torch.gather(data_dict['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
+    # pred_size_class = pred_size_class.detach().cpu().numpy()
+    # pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
+
+    # print("data_dict['size_unnormalized'].shape")
+    # print(data_dict['size_unnormalized'].shape)
+    # size_unnormalized_3detr = data_dict['size_unnormalized'].detach().cpu().numpy()
+
+    # print("data_dict['angle_continuous'].shape")
+    # print(data_dict['angle_continuous'].shape)
+    # angle_continuous_3detr = data_dict['angle_continuous'].detach().cpu().numpy()
+
+    # print("data_dict['box_corners'].shape")
+    # print(data_dict['box_corners'].shape)
+    box_corners_3detr = data_dict['box_corners'].detach().cpu().numpy()
+
+
+
+
 
     # ground truth bbox
     gt_center = data_dict['ref_center_label'].cpu().numpy() # (B,3)
@@ -224,12 +255,32 @@ def compute_reference_loss(data_dict, config):
     # compute the iou score for all predictd positive ref
     batch_size, num_proposals = cluster_preds.shape
     labels = np.zeros((batch_size, num_proposals))
-    for i in range(pred_ref.shape[0]):
+    
+    for i in range(batch_size):
         # convert the bbox parameters to bbox corners
-        pred_obb_batch = config.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
-                    pred_size_class[i], pred_size_residual[i])
-        pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
-        ious = box3d_iou_batch(pred_bbox_batch, np.tile(gt_bbox_batch[i], (num_proposals, 1, 1)))
+        # pred_obb_batch_3detr = np.zeros((pred_center.shape[1], 7))
+        # pred_obb_batch_3detr[:, 0:3] = pred_center[i, :, 0:3]
+        # pred_obb_batch_3detr[:, 3:6] = size_unnormalized_3detr[i,:,0:3]
+        # pred_obb_batch_3detr[:, 6] = angle_continuous_3detr[i]*-1
+
+
+        # pred_obb_batch = config.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
+        #             pred_size_class[i], pred_size_residual[i])
+        # pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
+        # print("pred_center dimension:")
+        # print(pred_center.shape)
+        # print("pred_heading_class dimension:")
+        # print(pred_heading_class.shape)
+        # print("pred_obb_batch dimension:")
+        # print(pred_obb_batch.shape)
+        # print("pred_obb_batch_3detr dimension:")
+        # print(pred_obb_batch_3detr.shape)
+        # print("pred_bbox_batch dimension:")
+        # print(pred_bbox_batch.shape)
+        # print("box_corners_3detr[i] dimenstion:")
+        # print(box_corners_3detr[i].shape)
+        ious = box3d_iou_batch(box_corners_3detr[i], np.tile(gt_bbox_batch[i], (num_proposals, 1, 1)))
+        # ious = box3d_iou_batch(pred_bbox_batch, np.tile(gt_bbox_batch[i], (num_proposals, 1, 1)))
         labels[i, ious.argmax()] = 1 # treat the bbox with highest iou score as the gt
 
     cluster_labels = torch.FloatTensor(labels).cuda()
@@ -259,7 +310,25 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
     """
 
     # Vote loss
-    vote_loss = compute_vote_loss(data_dict)
+    vote_loss = compute_vote_loss(data_dict) # voteloss should be zero, will remove it later
+    # print("vote_loss dimension:")
+    # print(vote_loss.shape)
+    # print(f"voteloss type: {vote_loss.dtype}")
+    # print(f"voteloss: {vote_loss}")
+
+    # 3detr_loss
+    detr_criterion = build_criterion(detr_args, detr_DC)
+    detr_criterion = detr_criterion.cuda(0)
+    # detr_loss = detr_criterion()
+
+    # Obj loss, Box loss and sem cls loss for 3detr:
+    loss, loss_dict = detr_criterion(data_dict["3detr_output"], data_dict)
+
+    print(f"loss dimension: {loss.shape}")
+    print(f"loss_dict: {loss_dict}")
+    loss_reduced = all_reduce_average(loss)
+    loss_dict_reduced = reduce_dict(loss_dict)
+    data_dict['3detr_loss'] = loss
 
     # Obj loss
     objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)

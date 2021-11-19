@@ -214,11 +214,19 @@ class RefNet(nn.Module):
         # print("objectness_masks from 3detr:")
         # print("3detr logits shape:")
         # print(output["outputs"]["sem_cls_logits"].shape)
-        objectness_masks_3detr = output["outputs"]["sem_cls_logits"][:,:,-1] < 0.5
+        objectness_masks_3detr = output["outputs"]["objectness_prob"] > 0.5
         objectness_masks_3detr = objectness_masks_3detr.int()
+        box_corners_3detr = output["outputs"]["box_corners"]
+        size_unnormalized_3detr = output["outputs"]["size_unnormalized"]
+        angle_continuous_3detr = output["outputs"]["angle_continuous"]
         print("objectness_masks_3detr.shape:")
         print(objectness_masks_3detr.shape)
         # print(objectness_masks_3detr)
+        data_dict['objectness_masks_3detr'] = objectness_masks_3detr
+        data_dict['box_corners'] = box_corners_3detr
+        data_dict['angle_continuous'] = angle_continuous_3detr
+        data_dict['size_unnormalized'] = size_unnormalized_3detr
+        data_dict['3detr_output'] = output
 
 
         # print()

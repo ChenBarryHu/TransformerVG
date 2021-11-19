@@ -2,7 +2,7 @@
 
 import torch
 import os
-from utils.dist import is_primary
+from _3detr.utils.dist import is_primary
 
 
 def save_checkpoint(

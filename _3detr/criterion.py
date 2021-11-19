@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from utils.box_util import generalized_box3d_iou
-from utils.dist import all_reduce_average
-from utils.misc import huber_loss
+from _3detr.utils.box_util import generalized_box3d_iou
+from _3detr.utils.dist import all_reduce_average
+from _3detr.utils.misc import huber_loss
 from scipy.optimize import linear_sum_assignment
 
 

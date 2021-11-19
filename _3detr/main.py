@@ -11,15 +11,15 @@ from torch.multiprocessing import set_start_method
 from torch.utils.data import DataLoader, DistributedSampler
 
 # 3DETR codebase specific imports
-from datasets import build_dataset
-from engine import evaluate, train_one_epoch
-from models import build_model
-from optimizer import build_optimizer
-from criterion import build_criterion
-from utils.dist import init_distributed, is_distributed, is_primary, get_rank, barrier
-from utils.misc import my_worker_init_fn
-from utils.io import save_checkpoint, resume_if_possible
-from utils.logger import Logger
+from _3detr.datasets import build_dataset
+from _3detr.engine import evaluate, train_one_epoch
+from _3detr.models import build_model
+from _3detr.optimizer import build_optimizer
+from _3detr.criterion import build_criterion
+from _3detr.utils.dist import init_distributed, is_distributed, is_primary, get_rank, barrier
+from _3detr.utils.misc import my_worker_init_fn
+from _3detr.utils.io import save_checkpoint, resume_if_possible
+from _3detr.utils.logger import Logger
 
 
 def make_args_parser():
@@ -102,8 +102,11 @@ def make_args_parser():
 
     ##### Dataset #####
     parser.add_argument(
-        "--dataset_name", required=True, type=str, choices=["scannet", "sunrgbd"]
+        "--dataset_name", type=str, default="scannet", choices=["scannet", "sunrgbd"]
     )
+    # parser.add_argument(
+    #     "--dataset_name", required=True, type=str, default="scannet", choices=["scannet", "sunrgbd"]
+    # )
     parser.add_argument(
         "--dataset_root_dir",
         type=str,
