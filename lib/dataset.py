@@ -11,7 +11,11 @@ import json
 import pickle
 import numpy as np
 import multiprocessing as mp
+import _3detr.datasets.scannet as detr_scannet
+from _3detr.utils.random_cuboid import RandomCuboid
+from _3detr.utils.pc_util import scale_points, shift_scale_points
 from torch.utils.data import Dataset
+
 
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from lib.config import CONF
@@ -20,8 +24,10 @@ from data.scannet.model_util_scannet import rotate_aligned_boxes, ScannetDataset
 
 # data setting
 DC = ScannetDatasetConfig()
+detr_DC = detr_scannet.ScannetDatasetConfig()
 MAX_NUM_OBJ = 128
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
+IGNORE_LABEL = -100
 
 # data path
 SCANNET_V2_TSV = os.path.join(CONF.PATH.SCANNET_META, "scannetv2-labels.combined.tsv")
@@ -38,7 +44,9 @@ class ScannetReferenceDataset(Dataset):
         use_color=False, 
         use_normal=False, 
         use_multiview=False, 
-        augment=False):
+        augment=False,
+        use_random_cuboid=True,
+        random_cuboid_min_points=30000):
 
         self.scanrefer = scanrefer
         self.scanrefer_all_scene = scanrefer_all_scene # all scene_ids in scanrefer
@@ -49,6 +57,13 @@ class ScannetReferenceDataset(Dataset):
         self.use_normal = use_normal        
         self.use_multiview = use_multiview
         self.augment = augment
+        
+        # from 3detr:
+        self.random_cuboid_augmentor = RandomCuboid(min_points=random_cuboid_min_points)
+        self.center_normalizing_range = [
+            np.zeros((1, 3), dtype=np.float32),
+            np.ones((1, 3), dtype=np.float32),
+        ]
 
         # load data
         self._load_data()
@@ -76,20 +91,23 @@ class ScannetReferenceDataset(Dataset):
         instance_labels = self.scene_data[scene_id]["instance_labels"]
         semantic_labels = self.scene_data[scene_id]["semantic_labels"]
         instance_bboxes = self.scene_data[scene_id]["instance_bboxes"]
-
+        # print(f"mesh_vertives shape: {mesh_vertices.shape}")
         if not self.use_color:
             point_cloud = mesh_vertices[:,0:3] # do not use color for now
             pcl_color = mesh_vertices[:,3:6]
         else:
+            # print("use_color")
             point_cloud = mesh_vertices[:,0:6] 
             point_cloud[:,3:6] = (point_cloud[:,3:6]-MEAN_COLOR_RGB)/256.0
             pcl_color = point_cloud[:,3:6]
         
         if self.use_normal:
+            # print("use_normal")
             normals = mesh_vertices[:,6:9]
             point_cloud = np.concatenate([point_cloud, normals],1)
 
         if self.use_multiview:
+            # print("use_multiview")
             # load multiview database
             pid = mp.current_process().pid
             if pid not in self.multiview_data:
@@ -99,20 +117,65 @@ class ScannetReferenceDataset(Dataset):
             point_cloud = np.concatenate([point_cloud, multiview],1)
 
         if self.use_height:
+            # print("use height")
             floor_height = np.percentile(point_cloud[:,2],0.99)
             height = point_cloud[:,2] - floor_height
             point_cloud = np.concatenate([point_cloud, np.expand_dims(height, 1)],1) 
+            # print(f"pointcloud dimension using height: {point_cloud.shape}")
         
-        point_cloud, choices = random_sampling(point_cloud, self.num_points, return_choices=True)        
+        # from scanrefer
+        # point_cloud, choices = random_sampling(point_cloud, self.num_points, return_choices=True)        
+        # instance_labels = instance_labels[choices]
+        # semantic_labels = semantic_labels[choices]
+        # pcl_color = pcl_color[choices]
+        
+        # ------------------------------- LABELS ------------------------------
+        # from 3detr:
+        target_bboxes = np.zeros((MAX_NUM_OBJ, 6), dtype=np.float32)
+        target_bboxes_mask = np.zeros((MAX_NUM_OBJ), dtype=np.float32)
+        angle_classes = np.zeros((MAX_NUM_OBJ,), dtype=np.int64)
+        angle_residuals = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
+        raw_sizes = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
+        raw_angles = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
+
+        if self.augment and self.use_random_cuboid:
+            # TODO: figure out what this is
+            # print("augment and use_random_cuboid")
+            (
+                point_cloud,
+                instance_bboxes,
+                per_point_labels,
+            ) = self.random_cuboid_augmentor(
+                point_cloud, instance_bboxes, [instance_labels, semantic_labels]
+            )
+            instance_labels = per_point_labels[0]
+            semantic_labels = per_point_labels[1]
+
+        point_cloud, choices = random_sampling(
+            point_cloud, self.num_points, return_choices=True
+        )
         instance_labels = instance_labels[choices]
         semantic_labels = semantic_labels[choices]
+
+        sem_seg_labels = np.ones_like(semantic_labels) * IGNORE_LABEL
+
+        for _c in detr_DC.nyu40ids_semseg:
+            sem_seg_labels[
+                semantic_labels == _c
+            ] = detr_DC.nyu40id2class_semseg[_c]
+
         pcl_color = pcl_color[choices]
-        
-        # ------------------------------- LABELS ------------------------------    
-        target_bboxes = np.zeros((MAX_NUM_OBJ, 6))
-        target_bboxes_mask = np.zeros((MAX_NUM_OBJ))    
-        angle_classes = np.zeros((MAX_NUM_OBJ,))
-        angle_residuals = np.zeros((MAX_NUM_OBJ,))
+
+        # target_bboxes_mask[0 : instance_bboxes.shape[0]] = 1
+        # target_bboxes[0 : instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
+
+
+
+        # ScanRefer:
+        # target_bboxes = np.zeros((MAX_NUM_OBJ, 6))
+        # target_bboxes_mask = np.zeros((MAX_NUM_OBJ))    
+        # angle_classes = np.zeros((MAX_NUM_OBJ,))
+        # angle_residuals = np.zeros((MAX_NUM_OBJ,))
         size_classes = np.zeros((MAX_NUM_OBJ,))
         size_residuals = np.zeros((MAX_NUM_OBJ, 3))
         ref_box_label = np.zeros(MAX_NUM_OBJ) # bbox label for reference target
@@ -163,6 +226,39 @@ class ScannetReferenceDataset(Dataset):
                 # Translation
                 point_cloud, target_bboxes = self._translate(point_cloud, target_bboxes)
 
+            # from 3detr:
+            raw_sizes = target_bboxes[:, 3:6]
+            # print(f"point_cloud dimension: {point_cloud.shape}")
+            point_cloud_dims_min = point_cloud.min(axis=0)[:3]
+            point_cloud_dims_max = point_cloud.max(axis=0)[:3]
+
+            box_centers = target_bboxes.astype(np.float32)[:, 0:3]
+            # print(f"box_centers[None, ...].shape: {box_centers[None, ...].shape}")
+            # print(f"src_range.shape: {point_cloud_dims_min[None, ...].shape}")
+            box_centers_normalized = shift_scale_points(
+                box_centers[None, ...],
+                src_range=[
+                    point_cloud_dims_min[None, ...],
+                    point_cloud_dims_max[None, ...],
+                ],
+                dst_range=self.center_normalizing_range,
+            )
+            box_centers_normalized = box_centers_normalized.squeeze(0)
+            box_centers_normalized = box_centers_normalized * target_bboxes_mask[..., None]
+            mult_factor = point_cloud_dims_max - point_cloud_dims_min
+            box_sizes_normalized = scale_points(
+                raw_sizes.astype(np.float32)[None, ...],
+                mult_factor=1.0 / mult_factor[None, ...],
+            )
+            box_sizes_normalized = box_sizes_normalized.squeeze(0)
+
+            box_corners = detr_DC.box_parametrization_to_corners_np(
+                box_centers[None, ...],
+                raw_sizes.astype(np.float32)[None, ...],
+                raw_angles.astype(np.float32)[None, ...],
+            )
+            box_corners = box_corners.squeeze(0)
+
             # compute votes *AFTER* augmentation
             # generate votes
             # Note: since there's no map between bbox instance labels and
@@ -209,6 +305,31 @@ class ScannetReferenceDataset(Dataset):
         object_cat = self.raw2label[object_name] if object_name in self.raw2label else 17
 
         data_dict = {}
+        # from 3detr:
+        data_dict["gt_box_corners"] = box_corners.astype(np.float32)
+        data_dict["gt_box_centers"] = box_centers.astype(np.float32) # same as center_label in ScanRefer
+        data_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(
+            np.float32
+        )
+        data_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)
+        data_dict["gt_angle_residual_label"] = angle_residuals.astype(np.float32)
+        # the following lines are the same as lines 283 to 286
+        # target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
+        # target_bboxes_semcls[0 : instance_bboxes.shape[0]] = [
+        #     self.dataset_config.nyu40id2class[x]
+        #     for x in instance_bboxes[:, -2][0 : instance_bboxes.shape[0]]
+        # ]
+        data_dict["gt_box_sem_cls_label"] = target_bboxes_semcls.astype(np.int64) #same as sem_cls_label in scanrefer
+        data_dict["gt_box_present"] = target_bboxes_mask.astype(np.float32) #same as box_label_mask in scanrefer
+        data_dict["scan_idx"] = np.array(idx).astype(np.int64) #same as scan_idx in scanrefer
+        data_dict["pcl_color"] = pcl_color #same as pcl_color in scanrefer
+        data_dict["gt_box_sizes"] = raw_sizes.astype(np.float32)
+        data_dict["gt_box_sizes_normalized"] = box_sizes_normalized.astype(np.float32)
+        data_dict["gt_box_angles"] = raw_angles.astype(np.float32) # this is basically 0
+        data_dict["point_cloud_dims_min"] = point_cloud_dims_min.astype(np.float32)
+        data_dict["point_cloud_dims_max"] = point_cloud_dims_max.astype(np.float32)
+
+        # from scanrefer
         data_dict["point_clouds"] = point_cloud.astype(np.float32) # point cloud data including features
         data_dict["lang_feat"] = lang_feat.astype(np.float32) # language feature vectors
         data_dict["lang_len"] = np.array(lang_len).astype(np.int64) # length of each description

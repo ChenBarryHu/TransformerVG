@@ -201,6 +201,12 @@ class RefNet(nn.Module):
         #######################################
 
         # --------- HOUGH VOTING ---------
+        inputs = {
+            "point_clouds": data_dict["point_clouds"],
+            "point_cloud_dims_min": data_dict["point_cloud_dims_min"],
+            "point_cloud_dims_max": data_dict["point_cloud_dims_max"],
+        }
+        self.detr(inputs)
         data_dict = self.backbone_net(data_dict)
                 
         # --------- HOUGH VOTING ---------
