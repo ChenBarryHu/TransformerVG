@@ -273,9 +273,7 @@ class Solver():
         # dump
         self._running_log["ref_loss"] = data_dict["ref_loss"]
         self._running_log["lang_loss"] = data_dict["lang_loss"]
-        self._running_log["objectness_loss"] = data_dict["objectness_loss"]
-        self._running_log["vote_loss"] = data_dict["vote_loss"]
-        self._running_log["box_loss"] = data_dict["box_loss"]
+        self._running_log["3detr_loss"] = data_dict["3detr_loss"]
         self._running_log["loss"] = data_dict["loss"]
 
     def _eval(self, data_dict):
@@ -354,9 +352,6 @@ class Solver():
             self.log[phase]["loss"].append(self._running_log["loss"].item())
             self.log[phase]["ref_loss"].append(self._running_log["ref_loss"].item())
             self.log[phase]["lang_loss"].append(self._running_log["lang_loss"].item())
-            self.log[phase]["objectness_loss"].append(self._running_log["objectness_loss"].item())
-            self.log[phase]["vote_loss"].append(self._running_log["vote_loss"].item())
-            self.log[phase]["box_loss"].append(self._running_log["box_loss"].item())
 
             self.log[phase]["lang_acc"].append(self._running_log["lang_acc"])
             self.log[phase]["ref_acc"].append(self._running_log["ref_acc"])

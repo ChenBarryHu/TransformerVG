@@ -206,23 +206,23 @@ class RefNet(nn.Module):
             "point_cloud_dims_min": data_dict["point_cloud_dims_min"],
             "point_cloud_dims_max": data_dict["point_cloud_dims_max"],
         }
-        # print(data_dict["point_clouds"].shape)
+
         output = self.detr(inputs)
-        # print(f"output.keys(): {output.keys()}")
-        # print("features from 3detr:")
-        # print(output["outputs"]["scanrefer_features"].shape)
-        # print("objectness_masks from 3detr:")
-        # print("3detr logits shape:")
-        # print(output["outputs"]["sem_cls_logits"].shape)
-        objectness_masks_3detr = output["outputs"]["objectness_prob"] > 0.5
-        objectness_masks_3detr = objectness_masks_3detr.int()
+
         box_corners_3detr = output["outputs"]["box_corners"]
         size_unnormalized_3detr = output["outputs"]["size_unnormalized"]
         angle_continuous_3detr = output["outputs"]["angle_continuous"]
-        print("objectness_masks_3detr.shape:")
-        print(objectness_masks_3detr.shape)
-        # print(objectness_masks_3detr)
-        data_dict['objectness_masks_3detr'] = objectness_masks_3detr
+        objectness_score = torch.stack(((1-output["outputs"]["objectness_prob"]), output["outputs"]["objectness_prob"]), -1)
+        
+        
+        
+        data_dict['center_unnormalized'] = output["outputs"]["center_unnormalized"]
+        data_dict['scanrefer_features'] = output["outputs"]["scanrefer_features"]
+        data_dict['sem_cls_scores'] = output["outputs"]["sem_cls_logits"][:,:,:-1]
+        
+        
+        
+        data_dict['objectness_scores'] = objectness_score
         data_dict['box_corners'] = box_corners_3detr
         data_dict['angle_continuous'] = angle_continuous_3detr
         data_dict['size_unnormalized'] = size_unnormalized_3detr
@@ -233,21 +233,20 @@ class RefNet(nn.Module):
         data_dict = self.backbone_net(data_dict)
         
         # --------- HOUGH VOTING ---------
-        xyz = data_dict["fp2_xyz"]
-        features = data_dict["fp2_features"]
-        data_dict["seed_inds"] = data_dict["fp2_inds"]
-        data_dict["seed_xyz"] = xyz
-        data_dict["seed_features"] = features
+        # xyz = data_dict["fp2_xyz"]
+        # features = data_dict["fp2_features"]
+        # data_dict["seed_inds"] = data_dict["fp2_inds"]
+        # data_dict["seed_xyz"] = xyz
+        # data_dict["seed_features"] = features
         
-        xyz, features = self.vgen(xyz, features)
-        features_norm = torch.norm(features, p=2, dim=1)
-        features = features.div(features_norm.unsqueeze(1))
-        data_dict["vote_xyz"] = xyz
-        data_dict["vote_features"] = features
+        # xyz, features = self.vgen(xyz, features)
+        # features_norm = torch.norm(features, p=2, dim=1)
+        # features = features.div(features_norm.unsqueeze(1))
+        # data_dict["vote_xyz"] = xyz
+        # data_dict["vote_features"] = features
         # --------- PROPOSAL GENERATION ---------
-        data_dict = self.proposal(xyz, features, data_dict)
-        # print(data_dict["aggregated_vote_xyz"].shape)
-        # print(data_dict["aggregated_vote_features"].shape)
+        # data_dict = self.proposal(xyz, features, data_dict)
+
         
         if not self.no_reference:
             #######################################
