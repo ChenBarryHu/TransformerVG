@@ -15,6 +15,11 @@ from lib.ap_helper import parse_predictions
 from lib.loss import SoftmaxRankingLoss
 from utils.box_util import get_3d_box, get_3d_box_batch, box3d_iou
 
+FAR_THRESHOLD = 0.6
+NEAR_THRESHOLD = 0.3
+GT_VOTE_FACTOR = 3 # number of GT votes per point
+OBJECTNESS_CLS_WEIGHTS = [0.2, 0.8] # put larger weights on positive objectness
+
 def eval_ref_one_sample(pred_bbox, gt_bbox):
     """ Evaluate one reference prediction
 
@@ -58,8 +63,11 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
     batch_size, num_words, _ = data_dict["lang_feat"].shape
 
 
-    objectness_preds_batch = torch.argmax(data_dict['objectness_scores'], 2).long()
-    objectness_labels_batch = data_dict['objectness_label'].long()
+    objectness_preds_batch = torch.gt(data_dict['objectness_prob'], 0.5).long()  # Use objectness_prob from 3detr; object if bigger than 0.5
+
+    #Calculate objectness_labels
+
+    objectness_labels_batch = data_dict['objectness_label'].long() #objectness_label.long()
 
     if post_processing:
         _ = parse_predictions(data_dict, post_processing)
@@ -137,9 +145,10 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
         pred_heading_class = pred_heading_class # B,num_proposal
         pred_heading_residual = pred_heading_residual.squeeze(2) # B,num_proposal
         pred_size_class = torch.argmax(data_dict['size_scores'], -1) # B,num_proposal
-        pred_size_residual = torch.gather(data_dict['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
+        test = pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)
+        #pred_size_residual = torch.gather(data_dict['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
         pred_size_class = pred_size_class
-        pred_size_residual = pred_size_residual.squeeze(2) # B,num_proposal,3
+        #pred_size_residual = pred_size_residual.squeeze(2) # B,num_proposal,3
 
     # store
     data_dict["pred_mask"] = pred_masks
@@ -148,7 +157,7 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
     data_dict['pred_heading_class'] = pred_heading_class
     data_dict['pred_heading_residual'] = pred_heading_residual
     data_dict['pred_size_class'] = pred_size_class
-    data_dict['pred_size_residual'] = pred_size_residual
+    #data_dict['pred_size_residual'] = pred_size_residual
 
     gt_ref = torch.argmax(data_dict["ref_box_label"], 1)
     gt_center = data_dict['center_label'] # (B,MAX_NUM_OBJ,3)
@@ -162,16 +171,17 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
     others = []
     pred_bboxes = []
     gt_bboxes = []
+    #Use corners from 3detr
     for i in range(pred_ref.shape[0]):
         # compute the iou
         pred_ref_idx, gt_ref_idx = pred_ref[i], gt_ref[i]
-        pred_obb = config.param2obb(
-            pred_center[i, pred_ref_idx, 0:3].detach().cpu().numpy(), 
-            pred_heading_class[i, pred_ref_idx].detach().cpu().numpy(), 
-            pred_heading_residual[i, pred_ref_idx].detach().cpu().numpy(),
-            pred_size_class[i, pred_ref_idx].detach().cpu().numpy(), 
-            pred_size_residual[i, pred_ref_idx].detach().cpu().numpy()
-        )
+        #pred_obb = config.param2obb(
+        #    pred_center[i, pred_ref_idx, 0:3].detach().cpu().numpy(),
+        #    pred_heading_class[i, pred_ref_idx].detach().cpu().numpy(),
+        #    pred_heading_residual[i, pred_ref_idx].detach().cpu().numpy(),
+        #    pred_size_class[i, pred_ref_idx].detach().cpu().numpy(),
+        #    pred_size_residual[i, pred_ref_idx].detach().cpu().numpy()
+        #)
         gt_obb = config.param2obb(
             gt_center[i, gt_ref_idx, 0:3].detach().cpu().numpy(), 
             gt_heading_class[i, gt_ref_idx].detach().cpu().numpy(), 
@@ -179,13 +189,13 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
             gt_size_class[i, gt_ref_idx].detach().cpu().numpy(), 
             gt_size_residual[i, gt_ref_idx].detach().cpu().numpy()
         )
-        pred_bbox = get_3d_box(pred_obb[3:6], pred_obb[6], pred_obb[0:3])
+        pred_bbox = data_dict['box_predictions']['outputs']['box_corners'][i, pred_ref_idx, :, :].cpu().detach().numpy()#get_3d_box(pred_obb[3:6], pred_obb[6], pred_obb[0:3])
         gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
         iou = eval_ref_one_sample(pred_bbox, gt_bbox)
         ious.append(iou)
 
         # NOTE: get_3d_box() will return problematic bboxes
-        pred_bbox = construct_bbox_corners(pred_obb[0:3], pred_obb[3:6])
+        pred_bbox = construct_bbox_corners(data_dict['box_predictions']['outputs']['size_normalized'][i, pred_ref_idx, :].cpu().detach().numpy(), data_dict['box_predictions']['outputs']['center_normalized'][i, pred_ref_idx, :].cpu().detach().numpy())
         gt_bbox = construct_bbox_corners(gt_obb[0:3], gt_obb[3:6])
         pred_bboxes.append(pred_bbox)
         gt_bboxes.append(gt_bbox)
@@ -214,7 +224,7 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
 
     # --------------------------------------------
     # Some other statistics
-    obj_pred_val = torch.argmax(data_dict['objectness_scores'], 2) # B,K
+    obj_pred_val = objectness_preds_batch#torch.argmax(data_dict['objectness_scores'], 2) # B,K
     obj_acc = torch.sum((obj_pred_val==data_dict['objectness_label'].long()).float()*data_dict['objectness_mask'])/(torch.sum(data_dict['objectness_mask'])+1e-6)
     data_dict['obj_acc'] = obj_acc
     # detection semantic classification

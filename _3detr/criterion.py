@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from utils.box_util import generalized_box3d_iou
-from utils.dist import all_reduce_average
-from utils.misc import huber_loss
+from _3detr.utils.box_util import generalized_box3d_iou
+from _3detr.utils.dist import all_reduce_average
+from _3detr.utils.misc import huber_loss
 from scipy.optimize import linear_sum_assignment
 
 
@@ -28,13 +28,13 @@ class Matcher(nn.Module):
 
         batchsize = outputs["sem_cls_prob"].shape[0]
         nqueries = outputs["sem_cls_prob"].shape[1]
-        ngt = targets["gt_box_sem_cls_label"].shape[1]
+        ngt = targets["sem_cls_label"].shape[1]
         nactual_gt = targets["nactual_gt"]
 
         # classification cost: batch x nqueries x ngt matrix
         pred_cls_prob = outputs["sem_cls_prob"]
         gt_box_sem_cls_labels = (
-            targets["gt_box_sem_cls_label"]
+            targets["sem_cls_label"]
             .unsqueeze(1)
             .expand(batchsize, nqueries, ngt)
         )
@@ -87,20 +87,24 @@ class Matcher(nn.Module):
 
 
 class SetCriterion(nn.Module):
-    def __init__(self, matcher, dataset_config, loss_weight_dict):
+    def __init__(self, matcher, loss_weight_dict,  # Remove dataset_config from Constructor for ScanRefer
+                 num_class=18,
+                 num_angle_bin=1):
         super().__init__()
-        self.dataset_config = dataset_config
+        #self.dataset_config = dataset_config
         self.matcher = matcher
         self.loss_weight_dict = loss_weight_dict
+        self.num_semcls=num_class
+        self.num_angle_bin=num_angle_bin
 
-        semcls_percls_weights = torch.ones(dataset_config.num_semcls + 1)
+        semcls_percls_weights = torch.ones(self.num_semcls + 1).cuda()
         semcls_percls_weights[-1] = loss_weight_dict["loss_no_object_weight"]
         del loss_weight_dict["loss_no_object_weight"]
         self.register_buffer("semcls_percls_weights", semcls_percls_weights)
 
         self.loss_functions = {
             "loss_sem_cls": self.loss_sem_cls,
-            "loss_angle": self.loss_angle,
+            #"loss_angle": self.loss_angle,
             "loss_center": self.loss_center,
             "loss_size": self.loss_size,
             "loss_giou": self.loss_giou,
@@ -135,7 +139,7 @@ class SetCriterion(nn.Module):
         # # use assignments to compute labels for matched boxes
         # for b in range(pred_logits.shape[0]):
         #     if len(assign[b]) > 0:
-        #         sem_cls_targets[b, assign[b][0]] = targets["gt_box_sem_cls_label"][b, assign[b][1]]
+        #         sem_cls_targets[b, assign[b][0]] = targets["sem_cls_label"][b, assign[b][1]]
 
         # sem_cls_targets = sem_cls_targets.view(-1)
         # pred_logits = pred_logits.reshape(sem_cls_targets.shape[0], -1)
@@ -143,7 +147,7 @@ class SetCriterion(nn.Module):
 
         pred_logits = outputs["sem_cls_logits"]
         gt_box_label = torch.gather(
-            targets["gt_box_sem_cls_label"], 1, assignments["per_prop_gt_inds"]
+            targets["sem_cls_label"], 1, assignments["per_prop_gt_inds"]
         )
         gt_box_label[assignments["proposal_matched_mask"].int() == 0] = (
             pred_logits.shape[-1] - 1
@@ -162,10 +166,10 @@ class SetCriterion(nn.Module):
         angle_residual = outputs["angle_residual_normalized"]
 
         if targets["num_boxes_replica"] > 0:
-            gt_angle_label = targets["gt_angle_class_label"]
-            gt_angle_residual = targets["gt_angle_residual_label"]
+            gt_angle_label = targets["ref_heading_class_label"]
+            gt_angle_residual = targets["ref_heading_residual_label"]
             gt_angle_residual_normalized = gt_angle_residual / (
-                np.pi / self.dataset_config.num_angle_bin
+                np.pi / self.num_angle_bin
             )
 
             # # Non vectorized version
@@ -353,7 +357,7 @@ class SetCriterion(nn.Module):
         return final_loss, losses
 
     def forward(self, outputs, targets):
-        nactual_gt = targets["gt_box_present"].sum(axis=1).long()
+        nactual_gt = targets["box_label_mask"].sum(axis=1).long()
         num_boxes = torch.clamp(all_reduce_average(nactual_gt.sum()), min=1).item()
         targets["nactual_gt"] = nactual_gt
         targets["num_boxes"] = num_boxes
@@ -375,7 +379,7 @@ class SetCriterion(nn.Module):
         return loss, loss_dict
 
 
-def build_criterion(args, dataset_config):
+def build_criterion(args, num_class=18, num_angle_bin=1):
     matcher = Matcher(
         cost_class=args.matcher_cls_cost,
         cost_giou=args.matcher_giou_cost,
@@ -387,10 +391,10 @@ def build_criterion(args, dataset_config):
         "loss_giou_weight": args.loss_giou_weight,
         "loss_sem_cls_weight": args.loss_sem_cls_weight,
         "loss_no_object_weight": args.loss_no_object_weight,
-        "loss_angle_cls_weight": args.loss_angle_cls_weight,
-        "loss_angle_reg_weight": args.loss_angle_reg_weight,
+        #"loss_angle_cls_weight": args.loss_angle_cls_weight,
+        #"loss_angle_reg_weight": args.loss_angle_reg_weight,
         "loss_center_weight": args.loss_center_weight,
         "loss_size_weight": args.loss_size_weight,
     }
-    criterion = SetCriterion(matcher, dataset_config, loss_weight_dict)
+    criterion = SetCriterion(matcher, loss_weight_dict, num_class=num_class, num_angle_bin=num_angle_bin)
     return criterion

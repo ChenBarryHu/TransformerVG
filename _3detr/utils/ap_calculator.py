@@ -14,10 +14,10 @@ import numpy as np
 import scipy.special as scipy_special
 import torch
 
-from utils.box_util import (extract_pc_in_box3d, flip_axis_to_camera_np,
+from _3detr.utils.box_util import (extract_pc_in_box3d, flip_axis_to_camera_np,
                             get_3d_box, get_3d_box_batch)
-from utils.eval_det import eval_det_multiprocessing, get_iou_obb
-from utils.nms import nms_2d_faster, nms_3d_faster, nms_3d_faster_samecls
+from _3detr.utils.eval_det import eval_det_multiprocessing, get_iou_obb
+from _3detr.utils.nms import nms_2d_faster, nms_3d_faster, nms_3d_faster_samecls
 
 
 def flip_axis_to_depth(pc):
@@ -317,8 +317,8 @@ class APCalculator(object):
             objectness_probs=outputs["objectness_prob"],
             point_cloud=targets["point_clouds"],
             gt_box_corners=targets["gt_box_corners"],
-            gt_box_sem_cls_labels=targets["gt_box_sem_cls_label"],
-            gt_box_present=targets["gt_box_present"],
+            gt_box_sem_cls_labels=targets["sem_cls_label"],
+            gt_box_present=targets["box_label_mask"],
         )
 
     def step(

@@ -25,10 +25,10 @@ import numpy as np
 from torch.utils.data import Dataset
 import scipy.io as sio  # to load .mat files for depth points
 
-import utils.pc_util as pc_util
-from utils.random_cuboid import RandomCuboid
-from utils.pc_util import shift_scale_points, scale_points
-from utils.box_util import (
+import _3detr.utils.pc_util as pc_util
+from _3detr.utils.random_cuboid import RandomCuboid
+from _3detr.utils.pc_util import shift_scale_points, scale_points
+from _3detr.utils.box_util import (
     flip_axis_to_camera_tensor,
     get_3d_box_batch_tensor,
     flip_axis_to_camera_np,
@@ -362,20 +362,20 @@ class SunrgbdDetectionDataset(Dataset):
         ret_dict = {}
         ret_dict["point_clouds"] = point_cloud.astype(np.float32)
         ret_dict["gt_box_corners"] = box_corners.astype(np.float32)
-        ret_dict["gt_box_centers"] = box_centers.astype(np.float32)
+        ret_dict["center_label"] = box_centers.astype(np.float32)
         ret_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(
             np.float32
         )
         target_bboxes_semcls = np.zeros((self.max_num_obj))
         target_bboxes_semcls[0 : bboxes.shape[0]] = bboxes[:, -1]  # from 0 to 9
-        ret_dict["gt_box_sem_cls_label"] = target_bboxes_semcls.astype(np.int64)
-        ret_dict["gt_box_present"] = target_bboxes_mask.astype(np.float32)
+        ret_dict["sem_cls_label"] = target_bboxes_semcls.astype(np.int64)
+        ret_dict["box_label_mask"] = target_bboxes_mask.astype(np.float32)
         ret_dict["scan_idx"] = np.array(idx).astype(np.int64)
         ret_dict["gt_box_sizes"] = raw_sizes.astype(np.float32)
         ret_dict["gt_box_sizes_normalized"] = box_sizes_normalized.astype(np.float32)
         ret_dict["gt_box_angles"] = raw_angles.astype(np.float32)
-        ret_dict["gt_angle_class_label"] = angle_classes
-        ret_dict["gt_angle_residual_label"] = angle_residuals
+        ret_dict["ref_heading_class_label"] = angle_classes
+        ret_dict["ref_heading_residual_label"] = angle_residuals
         ret_dict["point_cloud_dims_min"] = point_cloud_dims_min
         ret_dict["point_cloud_dims_max"] = point_cloud_dims_max
         return ret_dict

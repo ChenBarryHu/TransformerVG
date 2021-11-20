@@ -8,10 +8,10 @@ Last modified: Apr 2021 by Ishan Misra
 import torch
 import numpy as np
 from scipy.spatial import ConvexHull, Delaunay
-from utils.misc import to_list_1d, to_list_3d
+from _3detr.utils.misc import to_list_1d, to_list_3d
 
 try:
-    from utils.box_intersection import box_intersection
+    from _3detr.utils.box_intersection import box_intersection
 except ImportError:
     print(
         "Could not import cythonized box intersection. Consider compiling box_intersection.pyx for faster training."

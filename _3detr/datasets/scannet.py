@@ -11,12 +11,12 @@ import sys
 
 import numpy as np
 import torch
-import utils.pc_util as pc_util
+import _3detr.utils.pc_util as pc_util
 from torch.utils.data import Dataset
-from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
+from _3detr.utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
                             get_3d_box_batch_np, get_3d_box_batch_tensor)
-from utils.pc_util import scale_points, shift_scale_points
-from utils.random_cuboid import RandomCuboid
+from _3detr.utils.pc_util import scale_points, shift_scale_points
+from _3detr.utils.random_cuboid import RandomCuboid
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
@@ -59,7 +59,7 @@ class ScannetDatasetConfig(object):
         #}
 
         lines = [line.rstrip() for line in
-                 open('E:/Daten/ADL4CV/Projekt/Code/ScanRefer/data/scannet/meta_data/scannetv2-labels.combined.tsv')]
+                 open('E:/Daten/ADL4CV/Projekt/Code/ScanRefer/data/scannet/meta_data/scannetv2-labels.combined.tsv')]  #TODO - Change this to location
         lines = lines[1:]
         self.nyu40id2class = {}
         for i in range(len(lines)):
@@ -351,19 +351,19 @@ class ScannetDetectionDataset(Dataset):
         ret_dict = {}
         ret_dict["point_clouds"] = point_cloud.astype(np.float32)
         ret_dict["gt_box_corners"] = box_corners.astype(np.float32)
-        ret_dict["gt_box_centers"] = box_centers.astype(np.float32)
+        ret_dict["center_label"] = box_centers.astype(np.float32)
         ret_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(
             np.float32
         )
-        ret_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)
-        ret_dict["gt_angle_residual_label"] = angle_residuals.astype(np.float32)
+        ret_dict["ref_heading_class_label"] = angle_classes.astype(np.int64)
+        ret_dict["ref_heading_residual_label"] = angle_residuals.astype(np.float32)
         target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
         target_bboxes_semcls[0 : instance_bboxes.shape[0]] = [
             self.dataset_config.nyu40id2class[x]
             for x in instance_bboxes[:, -2][0 : instance_bboxes.shape[0]]
         ]
-        ret_dict["gt_box_sem_cls_label"] = target_bboxes_semcls.astype(np.int64)
-        ret_dict["gt_box_present"] = target_bboxes_mask.astype(np.float32)
+        ret_dict["sem_cls_label"] = target_bboxes_semcls.astype(np.int64)
+        ret_dict["box_label_mask"] = target_bboxes_mask.astype(np.float32)
         ret_dict["scan_idx"] = np.array(idx).astype(np.int64)
         ret_dict["pcl_color"] = pcl_color
         ret_dict["gt_box_sizes"] = raw_sizes.astype(np.float32)

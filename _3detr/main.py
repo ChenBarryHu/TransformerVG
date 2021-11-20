@@ -11,15 +11,15 @@ from torch.multiprocessing import set_start_method
 from torch.utils.data import DataLoader, DistributedSampler
 
 # 3DETR codebase specific imports
-from datasets import build_dataset
-from engine import evaluate, train_one_epoch
-from models import build_model
-from optimizer import build_optimizer
-from criterion import build_criterion
-from utils.dist import init_distributed, is_distributed, is_primary, get_rank, barrier
-from utils.misc import my_worker_init_fn
-from utils.io import save_checkpoint, resume_if_possible
-from utils.logger import Logger
+from _3detr.datasets import build_dataset
+from _3detr.engine import evaluate, train_one_epoch
+from _3detr.models import build_model
+from _3detr.optimizer import build_optimizer
+from _3detr.criterion import build_criterion
+from _3detr.utils.dist import init_distributed, is_distributed, is_primary, get_rank, barrier
+from _3detr.utils.misc import my_worker_init_fn
+from _3detr.utils.io import save_checkpoint, resume_if_possible
+from _3detr.utils.logger import Logger
 
 
 def make_args_parser():
@@ -111,8 +111,8 @@ def make_args_parser():
         help="Root directory containing the dataset files. \
               If None, default values from scannet.py/sunrgbd.py are used",
     )
-    parser.add_argument("--dataset_num_workers", default=4, type=int)
-    parser.add_argument("--batchsize_per_gpu", default=8, type=int)
+    parser.add_argument("--dataset_num_workers", default=0, type=int)
+    parser.add_argument("--batchsize_per_gpu", default=4, type=int)
 
     ##### Training #####
     parser.add_argument("--start_epoch", default=-1, type=int)
@@ -354,7 +354,7 @@ def main(local_rank, args):
         model = torch.nn.parallel.DistributedDataParallel(
             model, device_ids=[local_rank]
         )
-    criterion = build_criterion(args, dataset_config)
+    criterion = build_criterion(args, num_class=dataset_config.num_semcls, num_angle_bin=dataset_config.num_angle_bin)
     criterion = criterion.cuda(local_rank)
 
     dataloaders = {}

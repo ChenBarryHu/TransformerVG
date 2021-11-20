@@ -15,7 +15,7 @@ from models.match_module import MatchModule
 sys.path.insert(1, "E:/Daten/Dokumente/GitHub/3dvg-transformer/_3detr")
 #from _3detr.models.model_3detr import Model3DETR
 #from _3detr.models import build_model
-import _3detr
+from _3detr.models import model_3detr as detr
 
 class RefNet(nn.Module):
     def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, args,
@@ -37,20 +37,35 @@ class RefNet(nn.Module):
         self.use_bidir = use_bidir      
         self.no_reference = no_reference
 
+        self.use_3detr = True
 
         # --------- PROPOSAL GENERATION ---------
         # Backbone point feature learning
-        self.backbone_net = Pointnet2Backbone(input_feature_dim=self.input_feature_dim)
+        if not self.use_3detr:
+            self.backbone_net = Pointnet2Backbone(input_feature_dim=self.input_feature_dim)
 
-        # Hough voting
-        self.vgen = VotingModule(self.vote_factor, 256)
+            # Hough voting
+            self.vgen = VotingModule(self.vote_factor, 256)
 
-        # Vote aggregation and object proposal
-        self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
-
+            # Vote aggregation and object proposal
+            self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
+        else:
         # ------------- PROPOSAL GENERATION WITH 3DETR -------------
 
-        #_3detr.models.build_3detr()
+            pre_encoder = detr.build_preencoder(args)
+            encoder = detr.build_encoder(args)
+            decoder = detr.build_decoder(args)
+            self.model_3detr = detr.Model3DETR(
+                pre_encoder,
+                encoder,
+                decoder,
+                num_classes=self.num_class,
+                encoder_dim=args.enc_dim,
+                decoder_dim=args.dec_dim,
+                mlp_dropout=args.mlp_dropout,
+                num_queries=args.nqueries,
+            )
+            output_processor = detr.BoxProcessor(self.num_class)
 
         # ----------------------------------------------------------
 
@@ -89,24 +104,33 @@ class RefNet(nn.Module):
         #                                     #
         #######################################
 
+        if not self.use_3detr:
         # --------- HOUGH VOTING ---------
-        data_dict = self.backbone_net(data_dict)
-                
-        # --------- HOUGH VOTING ---------
-        xyz = data_dict["fp2_xyz"]
-        features = data_dict["fp2_features"]
-        data_dict["seed_inds"] = data_dict["fp2_inds"]
-        data_dict["seed_xyz"] = xyz
-        data_dict["seed_features"] = features
-        
-        xyz, features = self.vgen(xyz, features)
-        features_norm = torch.norm(features, p=2, dim=1)
-        features = features.div(features_norm.unsqueeze(1))
-        data_dict["vote_xyz"] = xyz
-        data_dict["vote_features"] = features
+            data_dict = self.backbone_net(data_dict)
 
-        # --------- PROPOSAL GENERATION ---------
-        data_dict = self.proposal(xyz, features, data_dict)
+            # --------- HOUGH VOTING ---------
+            xyz = data_dict["fp2_xyz"]
+            features = data_dict["fp2_features"]
+            data_dict["seed_inds"] = data_dict["fp2_inds"]
+            data_dict["seed_xyz"] = xyz
+            data_dict["seed_features"] = features
+
+            xyz, features = self.vgen(xyz, features)
+            features_norm = torch.norm(features, p=2, dim=1)
+            features = features.div(features_norm.unsqueeze(1))
+            data_dict["vote_xyz"] = xyz
+            data_dict["vote_features"] = features
+
+            # --------- PROPOSAL GENERATION ---------
+            data_dict = self.proposal(xyz, features, data_dict)
+        else:
+            # --------- 3DETR ---------
+
+            # TODO: Work in progress.
+            #We have to change the output of the forward pass of 3DETR. ScanRefer keeps working with data_dict.
+            data_dict = self.model_3detr(data_dict)
+
+            #--------------------------
 
         if not self.no_reference:
             #######################################

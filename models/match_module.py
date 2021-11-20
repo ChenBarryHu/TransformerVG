@@ -34,8 +34,12 @@ class MatchModule(nn.Module):
         """
 
         # unpack outputs from detection branch
-        features = data_dict['aggregated_vote_features'] # batch_size, num_proposal, 128
-        objectness_masks = data_dict['objectness_scores'].max(2)[1].float().unsqueeze(2) # batch_size, num_proposals, 1
+        #features = data_dict['aggregated_vote_features'] # batch_size, num_proposal, 128
+        #objectness_masks = data_dict['objectness_scores'].max(2)[1].float().unsqueeze(2) # batch_size, num_proposals, 1
+
+        # unpack outputs from 3DETR
+        features = data_dict['aggregated_vote_features']  # batch_size, num_proposal, 128
+        objectness_masks = data_dict["objectness_prob"].gt(0.5).float().unsqueeze(2)
 
         # unpack outputs from language branch
         lang_feat = data_dict["lang_emb"] # batch_size, lang_size

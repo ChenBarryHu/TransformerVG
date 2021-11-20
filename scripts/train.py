@@ -20,6 +20,9 @@ from lib.solver import Solver
 from lib.config import CONF
 from models.refnet import RefNet
 
+# Import Criterion class from 3DETR to use for loss-function
+from _3detr.criterion import *
+
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
 SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))
 
@@ -38,7 +41,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_multiview=args.use_multiview
     )
     # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)  #Num_Workers set to 0 --> Main Process
 
     return dataset, dataloader
 
@@ -129,7 +132,11 @@ def get_solver(args, dataloader):
     BN_DECAY_STEP = 20 if args.no_reference else None
     BN_DECAY_RATE = 0.5 if args.no_reference else None
 
+    #Build criterion from 3DETR
+    criterion_3detr = build_criterion(args)
+
     solver = Solver(
+        criterion=criterion_3detr,
         model=model, 
         config=DC, 
         dataloader=dataloader, 
@@ -237,7 +244,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=14)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=2)  #14
     parser.add_argument("--epoch", type=int, help="number of epochs", default=50)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
@@ -295,8 +302,8 @@ if __name__ == "__main__":
 
     ### Decoder
     parser.add_argument("--dec_nlayers", default=8, type=int)
-    parser.add_argument("--dec_dim", default=256, type=int)
-    parser.add_argument("--dec_ffn_dim", default=256, type=int)
+    parser.add_argument("--dec_dim", default=128, type=int)
+    parser.add_argument("--dec_ffn_dim", default=128, type=int)  #Changed to 128 for
     parser.add_argument("--dec_dropout", default=0.1, type=float)
     parser.add_argument("--dec_nhead", default=4, type=int)
 
@@ -315,7 +322,7 @@ if __name__ == "__main__":
         "--pos_embed", default="fourier", type=str, choices=["fourier", "sine"]
     )
     parser.add_argument("--nqueries", default=256, type=int)
-    parser.add_argument("--use_color", default=False, action="store_true")
+    #parser.add_argument("--use_color", default=False, action="store_true")  --> this is already present in ScanRefers original arguments
 
     ##### Set Loss #####
     ### Matcher
@@ -336,9 +343,9 @@ if __name__ == "__main__":
     parser.add_argument("--loss_size_weight", default=1.0, type=float)
 
     ##### Dataset #####
-    parser.add_argument(
-        "--dataset_name", required=True, type=str, choices=["scannet", "sunrgbd"]
-    )
+    #parser.add_argument(
+    #    "--dataset_name", required=True, type=str, choices=["scannet", "sunrgbd"] --> not needed, only ScanNet
+    #)
     parser.add_argument(
         "--dataset_root_dir",
         type=str,
@@ -346,14 +353,14 @@ if __name__ == "__main__":
         help="Root directory containing the dataset files. \
                   If None, default values from scannet.py/sunrgbd.py are used",
     )
-    parser.add_argument("--dataset_num_workers", default=1, type=int)
+    parser.add_argument("--dataset_num_workers", default=0, type=int)
     parser.add_argument("--batchsize_per_gpu", default=4, type=int)
 
     ##### Training #####
     parser.add_argument("--start_epoch", default=-1, type=int)
     parser.add_argument("--max_epoch", default=720, type=int)
     parser.add_argument("--eval_every_epoch", default=10, type=int)
-    parser.add_argument("--seed", default=0, type=int)
+    #parser.add_argument("--seed", default=0, type=int) --> this argument already exists in ScanRefers original arguments
 
     ##### Testing #####
     parser.add_argument("--test_only", default=False, action="store_true")
@@ -382,6 +389,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     np.random.seed(args.seed)
-
+    #model = get_model(args)
+    #print("Done!")
     train(args)
     

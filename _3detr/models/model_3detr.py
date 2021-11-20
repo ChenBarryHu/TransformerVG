@@ -11,11 +11,14 @@ import torch.nn as nn
 
 from lib.pointnet2.pointnet2_modules import PointnetSAModuleVotes
 from lib.pointnet2.pointnet2_utils import furthest_point_sample
-from utils.pc_util import scale_points, shift_scale_points
+from _3detr.utils.pc_util import scale_points, shift_scale_points
 
-from models.helpers import GenericMLP
-from models.position_embedding import PositionEmbeddingCoordsSine
-from models.transformer import (MaskedTransformerEncoder, TransformerDecoder,
+from _3detr.utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
+                            get_3d_box_batch_np, get_3d_box_batch_tensor)
+
+from _3detr.models.helpers import GenericMLP
+from _3detr.models.position_embedding import PositionEmbeddingCoordsSine
+from _3detr.models.transformer import (MaskedTransformerEncoder, TransformerDecoder,
                                 TransformerDecoderLayer, TransformerEncoder,
                                 TransformerEncoderLayer)
 
@@ -25,8 +28,8 @@ class BoxProcessor(object):
     Class to convert 3DETR MLP head outputs into bounding boxes
     """
 
-    def __init__(self, dataset_config):
-        self.dataset_config = dataset_config
+    def __init__(self, num_classes):
+        self.num_classes = num_classes
 
     def compute_predicted_center(self, center_offset, query_xyz, point_cloud_dims):
         center_unnormalized = query_xyz + center_offset
@@ -49,7 +52,7 @@ class BoxProcessor(object):
             angle = angle_logits * 0 + angle_residual * 0
             angle = angle.squeeze(-1).clamp(min=0)
         else:
-            angle_per_cls = 2 * np.pi / self.dataset_config.num_angle_bin
+            angle_per_cls = 2 * np.pi / 1  #Hard Coded to 1 for ScanNet
             pred_angle_class = angle_logits.argmax(dim=-1).detach()
             angle_center = angle_per_cls * pred_angle_class
             angle = angle_center + angle_residual.gather(
@@ -60,17 +63,15 @@ class BoxProcessor(object):
         return angle
 
     def compute_objectness_and_cls_prob(self, cls_logits):
-        assert cls_logits.shape[-1] == self.dataset_config.num_semcls + 1
+        assert cls_logits.shape[-1] == self.num_classes + 1 #ScanRefer only uses 18 classes, 'others' as background.
         cls_prob = torch.nn.functional.softmax(cls_logits, dim=-1)
         objectness_prob = 1 - cls_prob[..., -1]
         return cls_prob[..., :-1], objectness_prob
 
-    def box_parametrization_to_corners(
-        self, box_center_unnorm, box_size_unnorm, box_angle
-    ):
-        return self.dataset_config.box_parametrization_to_corners(
-            box_center_unnorm, box_size_unnorm, box_angle
-        )
+    def box_parametrization_to_corners(self, box_center_unnorm, box_size_unnorm, box_angle):  #Replaced calling dataset_config by directly calling function defined in dataset_config
+        box_center_upright = flip_axis_to_camera_tensor(box_center_unnorm)
+        boxes = get_3d_box_batch_tensor(box_size_unnorm, box_angle, box_center_upright)
+        return boxes
 
 
 class Model3DETR(nn.Module):
@@ -95,7 +96,7 @@ class Model3DETR(nn.Module):
         pre_encoder,
         encoder,
         decoder,
-        dataset_config,
+        num_classes=18,  #Replaced dataset_config by num_classes since only ScanNet (ScanRefer) is used for this project
         encoder_dim=256,
         decoder_dim=256,
         position_embedding="fourier",
@@ -132,12 +133,12 @@ class Model3DETR(nn.Module):
             hidden_use_bias=True,
         )
         self.decoder = decoder
-        self.build_mlp_heads(dataset_config, decoder_dim, mlp_dropout)
+        self.build_mlp_heads(num_classes, decoder_dim, mlp_dropout)
 
         self.num_queries = num_queries
-        self.box_processor = BoxProcessor(dataset_config)
+        self.box_processor = BoxProcessor(num_classes)
 
-    def build_mlp_heads(self, dataset_config, decoder_dim, mlp_dropout):
+    def build_mlp_heads(self, num_classes, decoder_dim, mlp_dropout):
         mlp_func = partial(
             GenericMLP,
             norm_fn_name="bn1d",
@@ -149,14 +150,14 @@ class Model3DETR(nn.Module):
         )
 
         # Semantic class of the box
-        # add 1 for background/not-an-object class
-        semcls_head = mlp_func(output_dim=dataset_config.num_semcls + 1)
+        # add 1 for background/not-an-object class --> ScanRefer only uses 18 classes and uses the class 'others' for background.
+        semcls_head = mlp_func(output_dim=num_classes + 1)
 
         # geometry of the box
         center_head = mlp_func(output_dim=3)
         size_head = mlp_func(output_dim=3)
-        angle_cls_head = mlp_func(output_dim=dataset_config.num_angle_bin)
-        angle_reg_head = mlp_func(output_dim=dataset_config.num_angle_bin)
+        angle_cls_head = mlp_func(output_dim=1)  #Hard Coded to 1 for ScanNet
+        angle_reg_head = mlp_func(output_dim=1)  #Hard Coded to 1 for ScanNet
 
         mlp_heads = [
             ("sem_cls_head", semcls_head),
@@ -337,14 +338,40 @@ class Model3DETR(nn.Module):
             tgt, enc_features, query_pos=query_embed, pos=enc_pos
         )[0]
 
+        #Add box_features as aggregated_vote_features, such that the Matching Module can work with it.
+        features_matching = box_features[-1]
+        inputs["aggregated_vote_features"] = features_matching.reshape(box_features.shape[2], box_features.shape[1], -1)
+
         box_predictions = self.get_box_predictions(
             query_xyz, point_cloud_dims, box_features
         )
-        return box_predictions
+        inputs["center"] = box_predictions["outputs"]["center_normalized"]
+        inputs["heading_scores"] = box_predictions["outputs"]["angle_logits"]
+        inputs["heading_residuals"] = box_predictions["outputs"]["angle_residual"]
+        inputs["size_scores"] = box_predictions["outputs"]["size_normalized"]
+        #inputs["size_residuals"] = box_predictions["outputs"]["angle_logits"]  ##TODO: not needed since 3detr returns corners
+        inputs['sem_cls_scores'] = box_predictions["outputs"]["sem_cls_logits"]
+
+        for key in box_predictions["outputs"]:
+            box_predictions["outputs"][key].cuda()
+
+        for l in box_predictions["aux_outputs"]:
+            for key in l:
+                l[key].cuda()
+
+
+        #Add objectness prob from 3DETR to data_dict
+        inputs["objectness_prob"] = box_predictions["outputs"]["objectness_prob"]
+        inputs["box_predictions"] = box_predictions
+        for key in inputs:
+            if key != "box_predictions":
+                inputs[key].cuda()
+
+        return inputs
 
 
 def build_preencoder(args):
-    mlp_dims = [3 * int(args.use_color), 64, 128, args.enc_dim]
+    mlp_dims = [3 * int(args.use_color) + int(not args.no_height), 64, 128, args.enc_dim]
     preencoder = PointnetSAModuleVotes(
         radius=0.2,
         nsample=64,

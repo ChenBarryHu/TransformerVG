@@ -6,7 +6,7 @@ import torch
 from torchvision.ops.boxes import box_area
 from typing import List
 try:
-    from box_intersection import batch_intersect
+    from _3detr.utils.box_intersection import batch_intersect
 except ImportError:
     print("Could not import cythonized batch_intersection")
     batch_intersect = None

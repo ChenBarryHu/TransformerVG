@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from collections import deque
 from typing import List
-from utils.dist import is_distributed, barrier, all_reduce_sum
+from _3detr.utils.dist import is_distributed, barrier, all_reduce_sum
 
 
 def my_worker_init_fn(worker_id):

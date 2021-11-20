@@ -7,9 +7,9 @@ import time
 import sys
 
 #from torch.distributed.distributed_c10d import reduce THIS ISN'T AVAILABLE ON WINDOWS!!
-from utils.ap_calculator import APCalculator
-from utils.misc import SmoothedValue
-from utils.dist import (
+from _3detr.utils.ap_calculator import APCalculator
+from _3detr.utils.misc import SmoothedValue
+from _3detr.utils.dist import (
     all_gather_dict,
     all_reduce_average,
     is_primary,

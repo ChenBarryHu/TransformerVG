@@ -20,6 +20,8 @@ from lib.eval_helper import get_eval
 from utils.eta import decode_eta
 from lib.pointnet2.pytorch_utils import BNMomentumScheduler
 
+#Import criterion from 3DETR
+from _3detr.criterion import *
 
 ITER_REPORT_TEMPLATE = """
 -------------------------------iter: [{epoch_id}: {iter_id}/{total_iter}]-------------------------------
@@ -85,13 +87,14 @@ BEST_REPORT_TEMPLATE = """
 """
 
 class Solver():
-    def __init__(self, model, config, dataloader, optimizer, stamp, val_step=10, 
+    def __init__(self, criterion, model, config, dataloader, optimizer, stamp, val_step=10,
     detection=True, reference=True, use_lang_classifier=True,
     lr_decay_step=None, lr_decay_rate=None, bn_decay_step=None, bn_decay_rate=None):
 
         self.epoch = 0                    # set in __call__
         self.verbose = 0                  # set in __call__
-        
+
+        self.criterion = criterion  # Criterion from 3DETR for loss calculation
         self.model = model
         self.config = config
         self.dataloader = dataloader
@@ -263,6 +266,7 @@ class Solver():
 
     def _compute_loss(self, data_dict):
         _, data_dict = get_loss(
+            criterion=self.criterion,
             data_dict=data_dict, 
             config=self.config, 
             detection=self.detection,
