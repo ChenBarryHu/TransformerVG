@@ -157,7 +157,7 @@ class RefNet(nn.Module):
 
         # --------- PROPOSAL GENERATION ---------
         # Backbone point feature learning
-        self.backbone_net = Pointnet2Backbone(input_feature_dim=self.input_feature_dim)
+        # self.backbone_net = Pointnet2Backbone(input_feature_dim=self.input_feature_dim)
 
         # Hough voting
         self.vgen = VotingModule(self.vote_factor, 256)
@@ -230,7 +230,7 @@ class RefNet(nn.Module):
 
 
         # print()
-        data_dict = self.backbone_net(data_dict)
+        # data_dict = self.backbone_net(data_dict)
         
         # --------- HOUGH VOTING ---------
         # xyz = data_dict["fp2_xyz"]

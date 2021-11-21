@@ -328,8 +328,8 @@ class ScannetReferenceDataset(Dataset):
         data_dict = {}
         # from 3detr:
         data_dict["gt_box_corners"] = box_corners.astype(np.float32)
-        data_dict["gt_box_centers"] = box_centers.astype(
-            np.float32)  # same as center_label in ScanRefer
+        # data_dict["gt_box_centers"] = box_centers.astype(
+            # np.float32)  # same as center_label in ScanRefer
         data_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(
             np.float32
         )
@@ -342,13 +342,13 @@ class ScannetReferenceDataset(Dataset):
         #     self.dataset_config.nyu40id2class[x]
         #     for x in instance_bboxes[:, -2][0 : instance_bboxes.shape[0]]
         # ]
-        data_dict["gt_box_sem_cls_label"] = target_bboxes_semcls.astype(
-            np.int64)  # same as sem_cls_label in scanrefer
-        data_dict["gt_box_present"] = target_bboxes_mask.astype(
-            np.float32)  # same as box_label_mask in scanrefer
-        data_dict["scan_idx"] = np.array(idx).astype(
-            np.int64)  # same as scan_idx in scanrefer
-        data_dict["pcl_color"] = pcl_color  # same as pcl_color in scanrefer
+        # data_dict["gt_box_sem_cls_label"] = target_bboxes_semcls.astype(
+        #     np.int64)  # same as sem_cls_label in scanrefer
+        # data_dict["gt_box_present"] = target_bboxes_mask.astype(
+        #     np.float32)  # same as box_label_mask in scanrefer
+        # data_dict["scan_idx"] = np.array(idx).astype(
+        #     np.int64)  # same as scan_idx in scanrefer
+        # data_dict["pcl_color"] = pcl_color  # same as pcl_color in scanrefer
         data_dict["gt_box_sizes"] = raw_sizes.astype(np.float32)
         data_dict["gt_box_sizes_normalized"] = box_sizes_normalized.astype(
             np.float32)
@@ -381,14 +381,14 @@ class ScannetReferenceDataset(Dataset):
             np.int64)  # (MAX_NUM_OBJ,) semantic class index
         # (MAX_NUM_OBJ) as 0/1 with 1 indicating a unique box
         data_dict["box_label_mask"] = target_bboxes_mask.astype(np.float32)
-        data_dict["vote_label"] = point_votes.astype(np.float32)
-        data_dict["vote_label_mask"] = point_votes_mask.astype(np.int64)
+        # data_dict["vote_label"] = point_votes.astype(np.float32)
+        # data_dict["vote_label_mask"] = point_votes_mask.astype(np.int64)
         data_dict["scan_idx"] = np.array(idx).astype(np.int64)
         data_dict["pcl_color"] = pcl_color
         data_dict["ref_box_label"] = ref_box_label.astype(
             np.int64)  # 0/1 reference labels for each object bbox
-        data_dict["ref_box_label"] = ref_box_label.astype(
-            np.int64)  # 0/1 reference labels for each object bbox
+        # data_dict["ref_box_label"] = ref_box_label.astype(
+        #     np.int64)  # 0/1 reference labels for each object bbox
         data_dict["ref_center_label"] = ref_center_label.astype(np.float32)
         data_dict["ref_heading_class_label"] = np.array(
             int(ref_heading_class_label)).astype(np.int64)
@@ -403,7 +403,7 @@ class ScannetReferenceDataset(Dataset):
         data_dict["object_cat"] = np.array(object_cat).astype(np.int64)
         data_dict["unique_multiple"] = np.array(
             self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]).astype(np.int64)
-        data_dict["pcl_color"] = pcl_color
+        # data_dict["pcl_color"] = pcl_color
         data_dict["load_time"] = time.time() - start
 
         return data_dict

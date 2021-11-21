@@ -47,9 +47,6 @@ EPOCH_REPORT_TEMPLATE = """
 [train] train_loss: {train_loss}
 [train] train_ref_loss: {train_ref_loss}
 [train] train_lang_loss: {train_lang_loss}
-[train] train_objectness_loss: {train_objectness_loss}
-[train] train_vote_loss: {train_vote_loss}
-[train] train_box_loss: {train_box_loss}
 [train] train_lang_acc: {train_lang_acc}
 [train] train_ref_acc: {train_ref_acc}
 [train] train_obj_acc: {train_obj_acc}
@@ -58,9 +55,6 @@ EPOCH_REPORT_TEMPLATE = """
 [val]   val_loss: {val_loss}
 [val]   val_ref_loss: {val_ref_loss}
 [val]   val_lang_loss: {val_lang_loss}
-[val]   val_objectness_loss: {val_objectness_loss}
-[val]   val_vote_loss: {val_vote_loss}
-[val]   val_box_loss: {val_box_loss}
 [val]   val_lang_acc: {val_lang_acc}
 [val]   val_ref_acc: {val_ref_acc}
 [val]   val_obj_acc: {val_obj_acc}
@@ -74,9 +68,6 @@ BEST_REPORT_TEMPLATE = """
 [loss] loss: {loss}
 [loss] ref_loss: {ref_loss}
 [loss] lang_loss: {lang_loss}
-[loss] objectness_loss: {objectness_loss}
-[loss] vote_loss: {vote_loss}
-[loss] box_loss: {box_loss}
 [loss] lang_acc: {lang_acc}
 [sco.] ref_acc: {ref_acc}
 [sco.] obj_acc: {obj_acc}
@@ -372,13 +363,13 @@ class Solver():
                     self._train_report(epoch_id)
 
                 # evaluation
-                if self._global_iter_id % self.val_step == 0:
-                    print("evaluating...")
-                    # val
-                    self._feed(self.dataloader["val"], "val", epoch_id)
-                    self._dump_log("val")
-                    self._set_phase("train")
-                    self._epoch_report(epoch_id)
+                # if (self._global_iter_id % self.val_step == 0) and (self._global_iter_id != 0):
+                #     print("evaluating...")
+                #     # val
+                #     self._feed(self.dataloader["val"], "val", epoch_id)
+                #     self._dump_log("val")
+                #     self._set_phase("train")
+                #     self._epoch_report(epoch_id)
 
                 # dump log
                 self._dump_log("train")
@@ -415,7 +406,7 @@ class Solver():
 
     def _dump_log(self, phase):
         log = {
-            "loss": ["loss", "ref_loss", "lang_loss", "objectness_loss", "vote_loss", "box_loss"],
+            "loss": ["loss", "ref_loss", "lang_loss"],
             "score": ["lang_acc", "ref_acc", "obj_acc", "pos_ratio", "neg_ratio", "iou_rate_0.25", "iou_rate_0.5"]
         }
         for key in log:

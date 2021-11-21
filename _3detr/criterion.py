@@ -28,13 +28,13 @@ class Matcher(nn.Module):
 
         batchsize = outputs["sem_cls_prob"].shape[0]
         nqueries = outputs["sem_cls_prob"].shape[1]
-        ngt = targets["gt_box_sem_cls_label"].shape[1]
+        ngt = targets["sem_cls_label"].shape[1]
         nactual_gt = targets["nactual_gt"]
 
         # classification cost: batch x nqueries x ngt matrix
         pred_cls_prob = outputs["sem_cls_prob"]
         gt_box_sem_cls_labels = (
-            targets["gt_box_sem_cls_label"]
+            targets["sem_cls_label"]
             .unsqueeze(1)
             .expand(batchsize, nqueries, ngt)
         )
@@ -143,7 +143,7 @@ class SetCriterion(nn.Module):
 
         pred_logits = outputs["sem_cls_logits"]
         gt_box_label = torch.gather(
-            targets["gt_box_sem_cls_label"], 1, assignments["per_prop_gt_inds"]
+            targets["sem_cls_label"], 1, assignments["per_prop_gt_inds"]
         )
         gt_box_label[assignments["proposal_matched_mask"].int() == 0] = (
             pred_logits.shape[-1] - 1
@@ -353,7 +353,7 @@ class SetCriterion(nn.Module):
         return final_loss, losses
 
     def forward(self, outputs, targets):
-        nactual_gt = targets["gt_box_present"].sum(axis=1).long()
+        nactual_gt = targets["box_label_mask"].sum(axis=1).long()
         num_boxes = torch.clamp(all_reduce_average(nactual_gt.sum()), min=1).item()
         targets["nactual_gt"] = nactual_gt
         targets["num_boxes"] = num_boxes
