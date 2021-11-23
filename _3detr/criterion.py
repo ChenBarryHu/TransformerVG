@@ -162,8 +162,8 @@ class SetCriterion(nn.Module):
         angle_residual = outputs["angle_residual_normalized"]
 
         if targets["num_boxes_replica"] > 0:
-            gt_angle_label = targets["gt_angle_class_label"]
-            gt_angle_residual = targets["gt_angle_residual_label"]
+            gt_angle_label = targets["heading_class_label"]
+            gt_angle_residual = targets["heading_residual_label"]
             gt_angle_residual_normalized = gt_angle_residual / (
                 np.pi / self.dataset_config.num_angle_bin
             )

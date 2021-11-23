@@ -333,9 +333,9 @@ class ScannetReferenceDataset(Dataset):
         data_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(
             np.float32
         )
-        data_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)
-        data_dict["gt_angle_residual_label"] = angle_residuals.astype(
-            np.float32)
+        # data_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)  # same as heading_class_label from scanrefer
+        # data_dict["gt_angle_residual_label"] = angle_residuals.astype(
+        #     np.float32) # same as heading_residual_label from scanrefer
         # the following lines are the same as lines 283 to 286
         # target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
         # target_bboxes_semcls[0 : instance_bboxes.shape[0]] = [

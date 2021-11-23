@@ -7,6 +7,7 @@ import argparse
 
 sys.path.append(os.path.join( os.path.join( os.getcwd(), os.pardir ),"detr"))
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
+from functools import partial
 from models.backbone_module import Pointnet2Backbone
 from models.voting_module import VotingModule
 from models.proposal_module import ProposalModule
@@ -14,6 +15,7 @@ from models.lang_module import LangModule
 from models.match_module import MatchModule
 from _3detr.models import build_model
 from _3detr.datasets import build_dataset
+from _3detr.models.helpers import GenericMLP
 
 
 def make_args_parser():
@@ -87,7 +89,7 @@ def make_args_parser():
     parser.add_argument("--loss_giou_weight", default=0, type=float)
     parser.add_argument("--loss_sem_cls_weight", default=1, type=float)
     parser.add_argument(
-        "--loss_no_object_weight", default=0.2, type=float
+        "--loss_no_object_weight", default=0.25, type=float
     )  # "no object" or "background" class for detection
     parser.add_argument("--loss_angle_cls_weight", default=0.1, type=float)
     parser.add_argument("--loss_angle_reg_weight", default=0.5, type=float)
@@ -141,6 +143,13 @@ class RefNet(nn.Module):
         args = parser.parse_args()
         datasets, dataset_config = build_dataset(args)
         self.detr, _ = build_model(args, dataset_config)
+        weight_path = "/home/shichenhu/3dvg-transformer/weights/scannet_ep1080.pth"
+        weights = weights = torch.load(weight_path)
+        self.detr.load_state_dict(weights['model'])
+        # for param in self.detr.parameters():
+        #     param.requires_grad = False
+
+
         self.num_class = num_class
         self.num_heading_bin = num_heading_bin
         self.num_size_cluster = num_size_cluster
@@ -153,6 +162,14 @@ class RefNet(nn.Module):
         self.use_lang_classifier = use_lang_classifier
         self.use_bidir = use_bidir      
         self.no_reference = no_reference
+        mlp_func_feature = partial(
+            GenericMLP,
+            use_conv=True,
+            hidden_dims=[],
+            dropout=args.mlp_dropout,
+            input_dim=args.dec_dim,
+        )
+        self.feature_head = mlp_func_feature(output_dim=128)
 
 
         # --------- PROPOSAL GENERATION ---------
@@ -160,10 +177,10 @@ class RefNet(nn.Module):
         # self.backbone_net = Pointnet2Backbone(input_feature_dim=self.input_feature_dim)
 
         # Hough voting
-        self.vgen = VotingModule(self.vote_factor, 256)
+        # self.vgen = VotingModule(self.vote_factor, 256)
 
         # Vote aggregation and object proposal
-        self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
+        # self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
         if not no_reference:
             # --------- LANGUAGE ENCODING ---------
@@ -207,8 +224,10 @@ class RefNet(nn.Module):
             "point_cloud_dims_max": data_dict["point_cloud_dims_max"],
         }
 
-        output = self.detr(inputs)
-
+        output, box_features, num_layers, batch, channel, num_queries = self.detr(inputs)
+        scanrefer_features = self.feature_head(box_features).transpose(1, 2)
+        scanrefer_features = scanrefer_features.reshape(num_layers, batch, num_queries, -1)
+        scanrefer_features = scanrefer_features[-1]
         box_corners_3detr = output["outputs"]["box_corners"]
         size_unnormalized_3detr = output["outputs"]["size_unnormalized"]
         angle_continuous_3detr = output["outputs"]["angle_continuous"]
@@ -217,7 +236,7 @@ class RefNet(nn.Module):
         
         
         data_dict['center_unnormalized'] = output["outputs"]["center_unnormalized"]
-        data_dict['scanrefer_features'] = output["outputs"]["scanrefer_features"]
+        data_dict['scanrefer_features'] = scanrefer_features
         data_dict['sem_cls_scores'] = output["outputs"]["sem_cls_logits"][:,:,:-1]
         
         

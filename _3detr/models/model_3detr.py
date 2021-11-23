@@ -145,13 +145,7 @@ class Model3DETR(nn.Module):
             input_dim=decoder_dim,
         )
 
-        mlp_func_feature = partial(
-            GenericMLP,
-            use_conv=True,
-            hidden_dims=[],
-            dropout=mlp_dropout,
-            input_dim=decoder_dim,
-        )
+        
 
         # Semantic class of the box
         # add 1 for background/not-an-object class
@@ -162,7 +156,7 @@ class Model3DETR(nn.Module):
         size_head = mlp_func(output_dim=3)
         angle_cls_head = mlp_func(output_dim=dataset_config.num_angle_bin)
         angle_reg_head = mlp_func(output_dim=dataset_config.num_angle_bin)
-        feature_head = mlp_func_feature(output_dim=128)
+        # feature_head = mlp_func_feature(output_dim=128)
 
         mlp_heads = [
             ("sem_cls_head", semcls_head),
@@ -170,7 +164,7 @@ class Model3DETR(nn.Module):
             ("size_head", size_head),
             ("angle_cls_head", angle_cls_head),
             ("angle_residual_head", angle_reg_head),
-            ("feature_head", feature_head)
+            # ("feature_head", feature_head)
         ]
         self.mlp_heads = nn.ModuleDict(mlp_heads)
 
@@ -246,8 +240,8 @@ class Model3DETR(nn.Module):
             num_layers * batch, channel, num_queries)
 
         # mlp head outputs are (num_layers x batch) x noutput x nqueries, so transpose last two dims
-        scanrefer_features = self.mlp_heads["feature_head"](
-            box_features).transpose(1, 2)
+        # scanrefer_features = self.mlp_heads["feature_head"](
+        #     box_features).transpose(1, 2)
         cls_logits = self.mlp_heads["sem_cls_head"](
             box_features).transpose(1, 2)
         center_offset = (
@@ -264,7 +258,7 @@ class Model3DETR(nn.Module):
         ).transpose(1, 2)
 
         # reshape outputs to num_layers x batch x nqueries x noutput
-        scanrefer_features = scanrefer_features.reshape(num_layers, batch, num_queries, -1)
+        # scanrefer_features = scanrefer_features.reshape(num_layers, batch, num_queries, -1)
         cls_logits = cls_logits.reshape(num_layers, batch, num_queries, -1)
         center_offset = center_offset.reshape(
             num_layers, batch, num_queries, -1)
@@ -306,7 +300,7 @@ class Model3DETR(nn.Module):
                 ) = self.box_processor.compute_objectness_and_cls_prob(cls_logits[l])
 
             box_prediction = {
-                "scanrefer_features": scanrefer_features[l],
+                # "scanrefer_features": scanrefer_features[l],
                 "sem_cls_logits": cls_logits[l],
                 "center_normalized": center_normalized.contiguous(),
                 "center_unnormalized": center_unnormalized,
@@ -333,7 +327,7 @@ class Model3DETR(nn.Module):
         return {
             "outputs": outputs,  # output from last layer of decoder
             "aux_outputs": aux_outputs,  # output from intermediate layers of decoder
-        }
+        }, box_features, num_layers, batch, channel, num_queries
 
     def forward(self, inputs, encoder_only=False):
         point_clouds = inputs["point_clouds"]
@@ -366,10 +360,10 @@ class Model3DETR(nn.Module):
             tgt, enc_features, query_pos=query_embed, pos=enc_pos
         )[0]
 
-        box_predictions = self.get_box_predictions(
+        box_predictions, box_features, num_layers, batch, channel, num_queries = self.get_box_predictions(
             query_xyz, point_cloud_dims, box_features
         )
-        return box_predictions
+        return box_predictions, box_features, num_layers, batch, channel, num_queries
 
 
 def build_preencoder(args):

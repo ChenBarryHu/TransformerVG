@@ -119,17 +119,17 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
 
     if use_oracle:
         pred_center = data_dict['center_label'] # (B,MAX_NUM_OBJ,3)
-        pred_heading_class = data_dict['heading_class_label'] # B,K2
-        pred_heading_residual = data_dict['heading_residual_label'] # B,K2
-        pred_size_class = data_dict['size_class_label'] # B,K2
-        pred_size_residual = data_dict['size_residual_label'] # B,K2,3
+        # pred_heading_class = data_dict['heading_class_label'] # B,K2
+        # pred_heading_residual = data_dict['heading_residual_label'] # B,K2
+        # pred_size_class = data_dict['size_class_label'] # B,K2
+        # pred_size_residual = data_dict['size_residual_label'] # B,K2,3
 
         # assign
         pred_center = torch.gather(pred_center, 1, data_dict["object_assignment"].unsqueeze(2).repeat(1, 1, 3))
-        pred_heading_class = torch.gather(pred_heading_class, 1, data_dict["object_assignment"])
-        pred_heading_residual = torch.gather(pred_heading_residual, 1, data_dict["object_assignment"]).unsqueeze(-1)
-        pred_size_class = torch.gather(pred_size_class, 1, data_dict["object_assignment"])
-        pred_size_residual = torch.gather(pred_size_residual, 1, data_dict["object_assignment"].unsqueeze(2).repeat(1, 1, 3))
+        # pred_heading_class = torch.gather(pred_heading_class, 1, data_dict["object_assignment"])
+        # pred_heading_residual = torch.gather(pred_heading_residual, 1, data_dict["object_assignment"]).unsqueeze(-1)
+        # pred_size_class = torch.gather(pred_size_class, 1, data_dict["object_assignment"])
+        # pred_size_residual = torch.gather(pred_size_residual, 1, data_dict["object_assignment"].unsqueeze(2).repeat(1, 1, 3))
     else:
         # pred_center = data_dict['center'].detach().cpu().numpy() # (B,K,3)
         # pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
