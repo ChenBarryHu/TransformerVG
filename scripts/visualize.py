@@ -356,8 +356,8 @@ def dump_results(args, scanrefer, data, config):
     
     # ground truth
     gt_center = data['center_label'].cpu().numpy() # (B,MAX_NUM_OBJ,3)
-    gt_heading_class = data['heading_class_label'].cpu().numpy() # B,K2
-    gt_heading_residual = data['heading_residual_label'].cpu().numpy() # B,K2
+    #gt_heading_class = data['heading_class_label'].cpu().numpy() # B,K2
+    #gt_heading_residual = data['heading_residual_label'].cpu().numpy() # B,K2
     gt_size_class = data['size_class_label'].cpu().numpy() # B,K2
     gt_size_residual = data['size_residual_label'].cpu().numpy() # B,K2,3
     # reference
@@ -389,7 +389,7 @@ def dump_results(args, scanrefer, data, config):
         # visualize the gt reference box
         # NOTE: for each object there should be only one gt reference box
         object_dump_dir = os.path.join(dump_dir, scene_id, "gt_{}_{}.ply".format(object_id, object_name))
-        gt_obb = config.param2obb(gt_center[i, gt_ref_idx, 0:3], gt_heading_class[i, gt_ref_idx], gt_heading_residual[i, gt_ref_idx],
+        gt_obb = config.param2obb(gt_center[i, gt_ref_idx, 0:3], 0, 0,
                 gt_size_class[i, gt_ref_idx], gt_size_residual[i, gt_ref_idx])
         gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
 

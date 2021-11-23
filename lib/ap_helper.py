@@ -195,8 +195,8 @@ def parse_groundtruths(end_points, config_dict):
             where j = 0, ..., num of objects - 1 at sample input i
     """
     center_label = end_points['center_label']
-    heading_class_label = end_points['heading_class_label']
-    heading_residual_label = end_points['heading_residual_label']
+    heading_class_label = 0 #end_points['heading_class_label']
+    heading_residual_label = 0 #end_points['heading_residual_label']
     size_class_label = end_points['size_class_label']
     size_residual_label = end_points['size_residual_label']
     box_label_mask = end_points['box_label_mask']

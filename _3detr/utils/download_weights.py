@@ -8,10 +8,10 @@ import pickle
 
 ## Define the weights you want and where to store them
 dataset = "scannet"
-encoder = "_masked" # or ""
+encoder = ""  #"_masked" # or ""
 epoch = 1080
 base_url = "https://dl.fbaipublicfiles.com/3detr/checkpoints"
-local_dir = "/tmp/"
+local_dir = "E:/Daten/Dokumente/GitHub/3dvg-transformer/_3detr/weights" #"/tmp/"
 
 ### Downloading the weights
 weights_file = f"{dataset}{encoder}_ep{epoch}.pth"

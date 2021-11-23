@@ -325,7 +325,7 @@ class SetCriterion(nn.Module):
             outputs["box_corners"],
             targets["gt_box_corners"],
             targets["nactual_gt"],
-            rotated_boxes=torch.any(targets["gt_box_angles"] > 0).item(),
+            rotated_boxes=False,
             needs_grad=(self.loss_weight_dict["loss_giou_weight"] > 0),
         )
 

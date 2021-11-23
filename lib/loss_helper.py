@@ -215,8 +215,8 @@ def compute_reference_loss(data_dict, config):
 
     # ground truth bbox
     gt_center = data_dict['ref_center_label'].cpu().numpy() # (B,3)
-    gt_heading_class = data_dict['ref_heading_class_label'].cpu().numpy() # B
-    gt_heading_residual = data_dict['ref_heading_residual_label'].cpu().numpy() # B
+    gt_heading_class = torch.zeros(gt_center.shape[0]).cpu().numpy() #data_dict['ref_heading_class_label'].cpu().numpy() # B
+    gt_heading_residual = torch.zeros(gt_center.shape[0]).cpu().numpy() #data_dict['ref_heading_residual_label'].cpu().numpy() # B
     gt_size_class = data_dict['ref_size_class_label'].cpu().numpy() # B
     gt_size_residual = data_dict['ref_size_residual_label'].cpu().numpy() # B,3
     # convert gt bbox parameters to bbox corners
@@ -324,15 +324,15 @@ def get_loss(criterion, data_dict, config, detection=True, reference=True, use_l
 
         # Substitute vote_loss, objectness_loss, box_loss and sem_cls_loss by loss from 3DETR
         loss_3detr, loss_dict_3detr = criterion(data_dict["box_predictions"], data_dict)
-        data_dict['vote_loss'] = torch.zeros(1)[0].cuda()
-        data_dict['objectness_loss'] = torch.zeros(1)[0].cuda()
-        data_dict['center_loss'] = torch.zeros(1)[0].cuda()
-        data_dict['heading_cls_loss'] = torch.zeros(1)[0].cuda()
-        data_dict['heading_reg_loss'] = torch.zeros(1)[0].cuda()
-        data_dict['size_cls_loss'] = torch.zeros(1)[0].cuda()
-        data_dict['size_reg_loss'] = torch.zeros(1)[0].cuda()
-        data_dict['sem_cls_loss'] = torch.zeros(1)[0].cuda()
-        data_dict['box_loss'] = torch.zeros(1)[0].cuda()
+        #data_dict['vote_loss'] = torch.zeros(1)[0].cuda()
+        #data_dict['objectness_loss'] = torch.zeros(1)[0].cuda()
+        #data_dict['center_loss'] = torch.zeros(1)[0].cuda()
+        #data_dict['heading_cls_loss'] = torch.zeros(1)[0].cuda()
+        #data_dict['heading_reg_loss'] = torch.zeros(1)[0].cuda()
+        #data_dict['size_cls_loss'] = torch.zeros(1)[0].cuda()
+        #data_dict['size_reg_loss'] = torch.zeros(1)[0].cuda()
+        #data_dict['sem_cls_loss'] = torch.zeros(1)[0].cuda()
+        #data_dict['box_loss'] = torch.zeros(1)[0].cuda()
 
     if reference:
         # Reference loss

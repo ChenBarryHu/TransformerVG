@@ -135,8 +135,8 @@ class ScannetReferenceDataset(Dataset):
             target_bboxes_mask[0:num_bbox] = 1
             target_bboxes[0:num_bbox,:] = instance_bboxes[:MAX_NUM_OBJ,0:6]
 
-            point_votes = np.zeros([self.num_points, 3])
-            point_votes_mask = np.zeros(self.num_points)
+            #point_votes = np.zeros([self.num_points, 3])
+            #point_votes_mask = np.zeros(self.num_points)
 
             # ------------------------------- DATA AUGMENTATION ------------------------------        
             if self.augment and not self.debug:
@@ -184,9 +184,9 @@ class ScannetReferenceDataset(Dataset):
                 if semantic_labels[ind[0]] in DC.nyu40ids:
                     x = point_cloud[ind,:3]
                     center = 0.5*(x.min(0) + x.max(0))
-                    point_votes[ind, :] = center - x
-                    point_votes_mask[ind] = 1.0
-            point_votes = np.tile(point_votes, (1, 3)) # make 3 votes identical 
+                    #point_votes[ind, :] = center - x
+                    #point_votes_mask[ind] = 1.0
+            #point_votes = np.tile(point_votes, (1, 3)) # make 3 votes identical
             
             class_ind = [DC.nyu40id2class[int(x)] for x in instance_bboxes[:num_bbox,-2]]
             # NOTE: set size class as semantic class. Consider use size2class.
@@ -205,8 +205,8 @@ class ScannetReferenceDataset(Dataset):
                     ref_size_residual_label = size_residuals[i]
         else:
             num_bbox = 1
-            point_votes = np.zeros([self.num_points, 9]) # make 3 votes identical 
-            point_votes_mask = np.zeros(self.num_points)
+            #point_votes = np.zeros([self.num_points, 9]) # make 3 votes identical
+            #point_votes_mask = np.zeros(self.num_points)
 
         target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
         try:
@@ -221,22 +221,22 @@ class ScannetReferenceDataset(Dataset):
         data_dict["lang_feat"] = lang_feat.astype(np.float32) # language feature vectors
         data_dict["lang_len"] = np.array(lang_len).astype(np.int64) # length of each description
         data_dict["center_label"] = target_bboxes.astype(np.float32)[:,0:3] # (MAX_NUM_OBJ, 3) for GT box center XYZ
-        data_dict["heading_class_label"] = angle_classes.astype(np.int64) # (MAX_NUM_OBJ,) with int values in 0,...,NUM_HEADING_BIN-1
-        data_dict["heading_residual_label"] = angle_residuals.astype(np.float32) # (MAX_NUM_OBJ,)
+        #data_dict["heading_class_label"] = angle_classes.astype(np.int64) # (MAX_NUM_OBJ,) with int values in 0,...,NUM_HEADING_BIN-1
+        #data_dict["heading_residual_label"] = angle_residuals.astype(np.float32) # (MAX_NUM_OBJ,)
         data_dict["size_class_label"] = size_classes.astype(np.int64) # (MAX_NUM_OBJ,) with int values in 0,...,NUM_SIZE_CLUSTER
         data_dict["size_residual_label"] = size_residuals.astype(np.float32) # (MAX_NUM_OBJ, 3)
         data_dict["num_bbox"] = np.array(num_bbox).astype(np.int64)
         data_dict["sem_cls_label"] = target_bboxes_semcls.astype(np.int64) # (MAX_NUM_OBJ,) semantic class index
         data_dict["box_label_mask"] = target_bboxes_mask.astype(np.float32) # (MAX_NUM_OBJ) as 0/1 with 1 indicating a unique box
-        data_dict["vote_label"] = point_votes.astype(np.float32)
-        data_dict["vote_label_mask"] = point_votes_mask.astype(np.int64)
+        #data_dict["vote_label"] = point_votes.astype(np.float32)
+        #data_dict["vote_label_mask"] = point_votes_mask.astype(np.int64)
         data_dict["scan_idx"] = np.array(idx).astype(np.int64)
         data_dict["pcl_color"] = pcl_color
         data_dict["ref_box_label"] = ref_box_label.astype(np.int64) # 0/1 reference labels for each object bbox
-        data_dict["ref_box_label"] = ref_box_label.astype(np.int64) # 0/1 reference labels for each object bbox
+        #data_dict["ref_box_label"] = ref_box_label.astype(np.int64) # 0/1 reference labels for each object bbox
         data_dict["ref_center_label"] = ref_center_label.astype(np.float32)
-        data_dict["ref_heading_class_label"] = np.array(int(ref_heading_class_label)).astype(np.int64)
-        data_dict["ref_heading_residual_label"] = np.array(int(ref_heading_residual_label)).astype(np.int64)
+        #data_dict["ref_heading_class_label"] = np.array(int(ref_heading_class_label)).astype(np.int64)
+        #data_dict["ref_heading_residual_label"] = np.array(int(ref_heading_residual_label)).astype(np.int64)
         data_dict["ref_size_class_label"] = np.array(int(ref_size_class_label)).astype(np.int64)
         data_dict["ref_size_residual_label"] = ref_size_residual_label.astype(np.float32)
         data_dict["object_id"] = np.array(int(object_id)).astype(np.int64)
@@ -277,7 +277,7 @@ class ScannetReferenceDataset(Dataset):
         )
 
         box_sizes = target_bboxes[:, 3:6]
-        data_dict["gt_box_sizes"] = raw_sizes.astype(np.float32)
+        #data_dict["gt_box_sizes"] = raw_sizes.astype(np.float32)
         mult_factor = point_cloud_dims_max - point_cloud_dims_min
         box_sizes_normalized = scale_points(
             raw_sizes.astype(np.float32)[None, ...],
@@ -285,7 +285,7 @@ class ScannetReferenceDataset(Dataset):
         )
         box_sizes_normalized = box_sizes_normalized.squeeze(0)
         data_dict["gt_box_sizes_normalized"] = box_sizes_normalized.astype(np.float32)
-        data_dict["gt_box_angles"] = raw_angles.astype(np.float32)
+        #data_dict["gt_box_angles"] = raw_angles.astype(np.float32)
         data_dict["point_cloud_dims_min"] = point_cloud_dims_min.astype(np.float32)
         data_dict["point_cloud_dims_max"] = point_cloud_dims_max.astype(np.float32)
         #-------------------------------------------------

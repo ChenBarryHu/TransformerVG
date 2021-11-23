@@ -65,6 +65,7 @@ class RefNet(nn.Module):
                 mlp_dropout=args.mlp_dropout,
                 num_queries=args.nqueries,
             )
+
             output_processor = detr.BoxProcessor(self.num_class)
 
         # ----------------------------------------------------------
