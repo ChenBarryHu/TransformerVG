@@ -97,11 +97,11 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
     data_dict["ref_acc"] = ref_acc.cpu().numpy().tolist()
 
     # compute localization metrics
-    if use_best:
+    if use_best: #DEFAULT = FAlSE
         pred_ref = torch.argmax(data_dict["cluster_labels"], 1) # (B,)
         # store the calibrated predictions and masks
         data_dict['cluster_ref'] = data_dict["cluster_labels"]
-    if use_cat_rand:
+    if use_cat_rand: #DEFAULT = FALSE
         cluster_preds = torch.zeros(cluster_labels.shape).cuda()
         for i in range(cluster_preds.shape[0]):
             num_bbox = data_dict["num_bbox"][i]
@@ -125,44 +125,44 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
         # store the calibrated predictions and masks
         data_dict['cluster_ref'] = data_dict['cluster_ref'] * pred_masks
 
-    if use_oracle:
-        pred_center = data_dict['center_label'] # (B,MAX_NUM_OBJ,3)
+    #if use_oracle:
+        #pred_center = data_dict['center_label'] # (B,MAX_NUM_OBJ,3)
         #pred_heading_class = data_dict['heading_class_label'] # B,K2
         #pred_heading_residual = data_dict['heading_residual_label'] # B,K2
-        pred_size_class = data_dict['size_class_label'] # B,K2
-        pred_size_residual = data_dict['size_residual_label'] # B,K2,3
+        #pred_size_class = data_dict['size_class_label'] # B,K2
+        #pred_size_residual = data_dict['size_residual_label'] # B,K2,3
 
         # assign
-        pred_center = torch.gather(pred_center, 1, data_dict["object_assignment"].unsqueeze(2).repeat(1, 1, 3))
+        #pred_center = torch.gather(pred_center, 1, data_dict["object_assignment"].unsqueeze(2).repeat(1, 1, 3))
         #pred_heading_class = torch.gather(pred_heading_class, 1, data_dict["object_assignment"])
         #pred_heading_residual = torch.gather(pred_heading_residual, 1, data_dict["object_assignment"]).unsqueeze(-1)
-        pred_size_class = torch.gather(pred_size_class, 1, data_dict["object_assignment"])
-        pred_size_residual = torch.gather(pred_size_residual, 1, data_dict["object_assignment"].unsqueeze(2).repeat(1, 1, 3))
-    else:
-        pred_center = data_dict['center'] # (B,K,3)
-        pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
-        pred_heading_residual = torch.gather(data_dict['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
+        #pred_size_class = torch.gather(pred_size_class, 1, data_dict["object_assignment"])
+        #pred_size_residual = torch.gather(pred_size_residual, 1, data_dict["object_assignment"].unsqueeze(2).repeat(1, 1, 3))
+    #else:
+        #pred_center = data_dict['center'] # (B,K,3)
+        #pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
+        #pred_heading_residual = torch.gather(data_dict['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
         #pred_heading_class = pred_heading_class # B,num_proposal
         #pred_heading_residual = pred_heading_residual.squeeze(2) # B,num_proposal
-        pred_size_class = torch.argmax(data_dict['size_scores'], -1) # B,num_proposal
-        test = pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)
+        #pred_size_class = torch.argmax(data_dict['size_scores'], -1) # B,num_proposal
+        #test = pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)
         #pred_size_residual = torch.gather(data_dict['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-        pred_size_class = pred_size_class
+        #pred_size_class = pred_size_class
         #pred_size_residual = pred_size_residual.squeeze(2) # B,num_proposal,3
 
     # store
     data_dict["pred_mask"] = pred_masks
     data_dict["label_mask"] = label_masks
-    data_dict['pred_center'] = pred_center
+    #data_dict['pred_center'] = pred_center
     #data_dict['pred_heading_class'] = pred_heading_class
     #data_dict['pred_heading_residual'] = pred_heading_residual
-    data_dict['pred_size_class'] = pred_size_class
+    #data_dict['pred_size_class'] = pred_size_class
     #data_dict['pred_size_residual'] = pred_size_residual
 
     gt_ref = torch.argmax(data_dict["ref_box_label"], 1)
     gt_center = data_dict['center_label'] # (B,MAX_NUM_OBJ,3)
-    #gt_heading_class = data_dict['heading_class_label'] # B,K2
-    #gt_heading_residual = data_dict['heading_residual_label'] # B,K2
+    gt_heading_class = torch.zeros((gt_center.shape[0], gt_center.shape[1])).cuda() #data_dict['heading_class_label'] # B,K2
+    gt_heading_residual = torch.zeros((gt_center.shape[0], gt_center.shape[1])).cuda() #data_dict['heading_residual_label'] # B,K2
     gt_size_class = data_dict['size_class_label'] # B,K2
     gt_size_residual = data_dict['size_residual_label'] # B,K2,3
 
@@ -182,16 +182,18 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
         #    pred_size_class[i, pred_ref_idx].detach().cpu().numpy(),
         #    pred_size_residual[i, pred_ref_idx].detach().cpu().numpy()
         #)
-        #gt_obb = config.param2obb(
-        #    gt_center[i, gt_ref_idx, 0:3].detach().cpu().numpy(),
-        #    gt_heading_class[i, gt_ref_idx].detach().cpu().numpy(),
-        #    gt_heading_residual[i, gt_ref_idx].detach().cpu().numpy(),
-        #    gt_size_class[i, gt_ref_idx].detach().cpu().numpy(),
-        #    gt_size_residual[i, gt_ref_idx].detach().cpu().numpy()
-        #)
-        pred_bbox = data_dict['box_predictions']['outputs']['box_corners'][i, pred_ref_idx, :, :].cpu().detach().numpy()#get_3d_box(pred_obb[3:6], pred_obb[6], pred_obb[0:3])
-        #gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
-        gt_bbox = data_dict["gt_box_corners"][i, gt_ref_idx, :, :].cpu().detach().numpy()
+        gt_obb = config.param2obb(
+            gt_center[i, gt_ref_idx, 0:3].detach().cpu().numpy(),
+            gt_heading_class[i, gt_ref_idx].detach().cpu().numpy(),
+            gt_heading_residual[i, gt_ref_idx].detach().cpu().numpy(),
+            gt_size_class[i, gt_ref_idx].detach().cpu().numpy(),
+            gt_size_residual[i, gt_ref_idx].detach().cpu().numpy()
+        )
+        pred_bbox = get_3d_box(data_dict["size_scores"][i, pred_ref_idx, :].detach().cpu().numpy(), 0, data_dict["center"][i, pred_ref_idx, :].detach().cpu().numpy())
+        # data_dict['box_predictions']['outputs']['box_corners'][i, pred_ref_idx, :, :].cpu().detach().numpy()#
+        gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
+        #gt_bbox = data_dict["gt_box_corners"][i, gt_ref_idx, :, :].cpu().detach().numpy()
+        gt_3detr_box = data_dict["gt_box_corners"][i, gt_ref_idx, :, :]
         iou = eval_ref_one_sample(pred_bbox, gt_bbox)
         ious.append(iou)
 
@@ -230,8 +232,10 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
     data_dict['obj_acc'] = obj_acc
     # detection semantic classification
     sem_cls_label = torch.gather(data_dict['sem_cls_label'], 1, data_dict['object_assignment']) # select (B,K) from (B,K2)
-    sem_cls_pred = data_dict['sem_cls_scores'].argmax(-1) # (B,K)
+    sem_cls_pred = data_dict['sem_cls_scores'][:, :, :-1].argmax(-1) # (B,K)
     sem_match = (sem_cls_label == sem_cls_pred).float()
     data_dict["sem_acc"] = (sem_match * data_dict["pred_mask"]).sum() / data_dict["pred_mask"].sum()
+    if (sem_match * data_dict["pred_mask"]).sum() == 0:
+        data_dict["sem_acc"] = np.array([0])
 
     return data_dict

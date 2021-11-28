@@ -10,7 +10,7 @@ class MatchModule(nn.Module):
         self.hidden_size = hidden_size
         
         self.fuse = nn.Sequential(
-            nn.Conv1d(self.lang_size + 128, hidden_size, 1),
+            nn.Conv1d(self.lang_size + 256, hidden_size, 1), #Changed from 128 to 256
             nn.ReLU()
         )
         # self.match = nn.Conv1d(hidden_size, 1, 1)

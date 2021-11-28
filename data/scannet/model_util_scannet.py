@@ -82,7 +82,7 @@ class ScannetDatasetConfig(object):
     def __init__(self):
         self.type2class = {'cabinet':0, 'bed':1, 'chair':2, 'sofa':3, 'table':4, 'door':5,
             'window':6,'bookshelf':7,'picture':8, 'counter':9, 'desk':10, 'curtain':11,
-            'refrigerator':12, 'shower curtain':13, 'toilet':14, 'sink':15, 'bathtub':16, 'others':17}  
+            'refrigerator':12, 'showercurtain':13, 'toilet':14, 'sink':15, 'bathtub':16, 'others':17}
         self.class2type = {self.type2class[t]:t for t in self.type2class}
 
         self.nyu40ids = np.array([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]) # exclude wall (1), floor (2), ceiling (22)

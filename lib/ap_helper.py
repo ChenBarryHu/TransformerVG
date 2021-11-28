@@ -60,11 +60,11 @@ def parse_predictions(end_points, config_dict):
         pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
     pred_heading_residual.squeeze_(2)
     pred_size_class = torch.argmax(end_points['size_scores'], -1) # B,num_proposal
-    pred_size_residual = torch.gather(end_points['size_residuals'], 2,
-        pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-    pred_size_residual.squeeze_(2)
-    pred_sem_cls = torch.argmax(end_points['sem_cls_scores'], -1) # B,num_proposal
-    sem_cls_probs = softmax(end_points['sem_cls_scores'].detach().cpu().numpy()) # B,num_proposal,10
+    #pred_size_residual = torch.gather(end_points['size_residuals'], 2,
+        #pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
+    #pred_size_residual.squeeze_(2)
+    pred_sem_cls = torch.argmax(end_points['sem_cls_scores'][:, :, :-1], -1) # B,num_proposal --> using the logits from 3detr we have to clip the last entry since it's the objectness score
+    sem_cls_probs = softmax(end_points['sem_cls_scores'][:, :, :-1].detach().cpu().numpy()) # B,num_proposal,10
     pred_sem_cls_prob = np.max(sem_cls_probs,-1) # B,num_proposal
 
     num_proposal = pred_center.shape[1] 
@@ -76,10 +76,9 @@ def parse_predictions(end_points, config_dict):
     pred_center_upright_camera = pred_center.detach().cpu().numpy()
     for i in range(bsize):
         for j in range(num_proposal):
-            heading_angle = config_dict['dataset_config'].class2angle(\
-                pred_heading_class[i,j].detach().cpu().numpy(), pred_heading_residual[i,j].detach().cpu().numpy())
-            box_size = config_dict['dataset_config'].class2size(\
-                int(pred_size_class[i,j].detach().cpu().numpy()), pred_size_residual[i,j].detach().cpu().numpy())
+            heading_angle = 0  #config_dict['dataset_config'].class2angle(\
+                #pred_heading_class[i,j].detach().cpu().numpy(), pred_heading_residual[i,j].detach().cpu().numpy())
+            box_size = end_points['size_scores'][i,j].detach().cpu().numpy()  #Use box_size from 3detr output
             corners_3d_upright_camera = get_3d_box(box_size, heading_angle, pred_center_upright_camera[i,j,:])
             pred_corners_3d_upright_camera[i,j] = corners_3d_upright_camera
 
@@ -100,8 +99,11 @@ def parse_predictions(end_points, config_dict):
                     nonempty_box_mask[i,j] = 0
         # -------------------------------------
 
-    obj_logits = end_points['objectness_scores'].detach().cpu().numpy()
-    obj_prob = softmax(obj_logits)[:,:,1] # (B,K)
+    #obj_logits = end_points['objectness_scores'].detach().cpu().numpy()
+    #obj_prob = softmax(obj_logits)[:,:,1] # (B,K)
+    # TODO: Changed to use objectness_prob from 3detr
+    obj_prob = end_points['objectness_prob'].detach().cpu().numpy()
+
     if not config_dict['use_3d_nms']:
         # ---------- NMS input: pred_with_prob in (B,K,7) -----------
         pred_mask = np.zeros((bsize, K))
@@ -210,7 +212,7 @@ def parse_groundtruths(end_points, config_dict):
     for i in range(bsize):
         for j in range(K2):
             if box_label_mask[i,j] == 0: continue
-            heading_angle = config_dict['dataset_config'].class2angle(heading_class_label[i,j].detach().cpu().numpy(), heading_residual_label[i,j].detach().cpu().numpy())
+            heading_angle = 0 #config_dict['dataset_config'].class2angle(heading_class_label[i,j].detach().cpu().numpy(), heading_residual_label[i,j].detach().cpu().numpy())
             box_size = config_dict['dataset_config'].class2size(int(size_class_label[i,j].detach().cpu().numpy()), size_residual_label[i,j].detach().cpu().numpy())
             corners_3d_upright_camera = get_3d_box(box_size, heading_angle, gt_center_upright_camera[i,j,:])
             gt_corners_3d_upright_camera[i,j] = corners_3d_upright_camera

@@ -206,7 +206,6 @@ class PointnetSAModuleVotes(nn.Module):
             mlp_spec[0] += 3
         self.mlp_module = pt_utils.SharedMLP(mlp_spec, bn=bn)
 
-
     def forward(self, xyz: torch.Tensor,
                 features: torch.Tensor = None,
                 inds: torch.Tensor = None) -> (torch.Tensor, torch.Tensor):

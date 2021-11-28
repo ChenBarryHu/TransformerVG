@@ -24,7 +24,7 @@ from models.refnet import RefNet
 from _3detr.criterion import *
 
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
-SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))
+SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))  #TODO: Change back to val
 
 # constants
 DC = ScannetDatasetConfig()
@@ -111,6 +111,7 @@ def get_num_params(model):
 
 def get_solver(args, dataloader):
     model = get_model(args)
+
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
 
     if args.use_checkpoint:
@@ -192,7 +193,7 @@ def get_scanrefer(scanrefer_train, scanrefer_val, num_scenes):
     else:
         # get initial scene list
         train_scene_list = sorted(list(set([data["scene_id"] for data in scanrefer_train])))
-        val_scene_list = sorted(list(set([data["scene_id"] for data in scanrefer_val])))
+        val_scene_list = sorted(list(set([data["scene_id"] for data in scanrefer_val])))  #TODO: scanrefer_val
         if num_scenes == -1: 
             num_scenes = len(train_scene_list)
         else:
@@ -244,8 +245,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=6)  #14
-    parser.add_argument("--epoch", type=int, help="number of epochs", default=50)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=3)  #14
+    parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)  #50
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3)
@@ -302,8 +303,8 @@ if __name__ == "__main__":
 
     ### Decoder
     parser.add_argument("--dec_nlayers", default=8, type=int)
-    parser.add_argument("--dec_dim", default=128, type=int)
-    parser.add_argument("--dec_ffn_dim", default=128, type=int)  #Changed to 128 for
+    parser.add_argument("--dec_dim", default=256, type=int)
+    parser.add_argument("--dec_ffn_dim", default=256, type=int)  #Changed to 128 for
     parser.add_argument("--dec_dropout", default=0.1, type=float)
     parser.add_argument("--dec_nhead", default=4, type=int)
 
@@ -332,10 +333,10 @@ if __name__ == "__main__":
     parser.add_argument("--matcher_objectness_cost", default=0, type=float)
 
     ### Loss Weights
-    parser.add_argument("--loss_giou_weight", default=0, type=float)
+    parser.add_argument("--loss_giou_weight", default=1, type=float)
     parser.add_argument("--loss_sem_cls_weight", default=1, type=float)
     parser.add_argument(
-        "--loss_no_object_weight", default=0.2, type=float
+        "--loss_no_object_weight", default=0.25, type=float
     )  # "no object" or "background" class for detection
     parser.add_argument("--loss_angle_cls_weight", default=0.1, type=float)
     parser.add_argument("--loss_angle_reg_weight", default=0.5, type=float)

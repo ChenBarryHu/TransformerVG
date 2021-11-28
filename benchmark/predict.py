@@ -24,6 +24,7 @@ from lib.eval_helper import get_eval
 from models.refnet import RefNet
 from utils.box_util import get_3d_box
 from data.scannet.model_util_scannet import ScannetDatasetConfig
+from _3detr.criterion import *
 
 SCANREFER_TEST = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_test.json")))
 
@@ -93,6 +94,9 @@ def predict(args):
     # model
     model = get_model(args, DC)
 
+    # Create criterion for 3detr
+    criterion = build_criterion(args)
+
     # config
     POST_DICT = {
         "remove_empty_box": True, 
@@ -115,6 +119,7 @@ def predict(args):
         # feed
         data_dict = model(data_dict)
         _, data_dict = get_loss(
+            criterion=criterion,
             data_dict=data_dict, 
             config=DC, 
             detection=False,

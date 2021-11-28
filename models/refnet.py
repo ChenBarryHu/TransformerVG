@@ -66,7 +66,29 @@ class RefNet(nn.Module):
                 num_queries=args.nqueries,
             )
 
+            #Load pretrained weights of 3detr
+            last_checkpoint = "E:/Daten/ADL4CV/Projekt/Code/3DETR/3detr/outputs/scannet_ep1080/checkpoint_best.pth"
+            #local_dir = "E:/Daten/Dokumente/GitHub/3dvg-transformer/_3detr/weights/"  # "/tmp/"
+            #weights_file = "scannet_ep1080.pth"
+            #local_weights = os.path.join(local_dir, weights_file)
+            #weights = torch.load(local_weights)
+            # print(self.model_3detr)
+
+
+
             output_processor = detr.BoxProcessor(self.num_class)
+
+            sd = torch.load(last_checkpoint)
+            #epoch = sd["epoch"]
+            best_val_metrics = sd["best_val_metrics"]
+            #print(f"Found checkpoint at {epoch}. Resuming.")
+
+            self.model_3detr.load_state_dict(sd["model"])
+            #optimizer.load_state_dict(sd["optimizer"])
+
+            #self.model_3detr.load_state_dict(weights['model'])
+            for param in self.model_3detr.parameters():
+                param.requires_grad = False
 
         # ----------------------------------------------------------
 

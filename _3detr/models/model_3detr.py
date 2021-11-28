@@ -345,10 +345,10 @@ class Model3DETR(nn.Module):
         box_predictions = self.get_box_predictions(
             query_xyz, point_cloud_dims, box_features
         )
-        inputs["center"] = box_predictions["outputs"]["center_normalized"]
+        inputs["center"] = box_predictions["outputs"]["center_unnormalized"]
         inputs["heading_scores"] = box_predictions["outputs"]["angle_logits"]
         inputs["heading_residuals"] = box_predictions["outputs"]["angle_residual"]
-        inputs["size_scores"] = box_predictions["outputs"]["size_normalized"]
+        inputs["size_scores"] = box_predictions["outputs"]["size_unnormalized"]
         #inputs["size_residuals"] = box_predictions["outputs"]["angle_logits"]  ##TODO: not needed since 3detr returns corners
         inputs['sem_cls_scores'] = box_predictions["outputs"]["sem_cls_logits"]
 
@@ -371,7 +371,7 @@ class Model3DETR(nn.Module):
 
 
 def build_preencoder(args):
-    mlp_dims = [3 * int(args.use_color) + int(not args.no_height), 64, 128, args.enc_dim]
+    mlp_dims = [3 * int(args.use_color), 64, 128, args.enc_dim] #+ int(not args.no_height)
     preencoder = PointnetSAModuleVotes(
         radius=0.2,
         nsample=64,

@@ -338,6 +338,8 @@ class SetCriterion(nn.Module):
 
         losses = {}
 
+        losses['assignments'] = assignments  #Add assignments to be able to access the masks from assignments in loss calculation in scanrefer
+
         for k in self.loss_functions:
             loss_wt_key = k + "_weight"
             if (

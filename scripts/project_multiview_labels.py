@@ -36,7 +36,7 @@ ENET_PATH = CONF.ENET_WEIGHTS
 ENET_GT_PATH = SCANNET_FRAME_PATH
 
 NYU40_LABELS = CONF.NYU40_LABELS
-SCANNET_LABELS = ['unannotated', 'wall', 'floor', 'chair', 'table', 'desk', 'bed', 'bookshelf', 'sofa', 'sink', 'bathtub', 'toilet', 'curtain', 'counter', 'door', 'window', 'shower curtain', 'refridgerator', 'picture', 'cabinet', 'otherfurniture']
+SCANNET_LABELS = ['unannotated', 'wall', 'floor', 'chair', 'table', 'desk', 'bed', 'bookshelf', 'sofa', 'sink', 'bathtub', 'toilet', 'curtain', 'counter', 'door', 'window', 'showercurtain', 'refridgerator', 'picture', 'cabinet', 'otherfurniture']
 
 PC_LABEL_ROOT = os.path.join(CONF.PATH.OUTPUT, "projections")
 PC_LABEL_PATH = os.path.join(PC_LABEL_ROOT, "{}.ply")

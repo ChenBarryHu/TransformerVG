@@ -192,6 +192,7 @@ class ScannetReferenceDataset(Dataset):
             # NOTE: set size class as semantic class. Consider use size2class.
             size_classes[0:num_bbox] = class_ind
             size_residuals[0:num_bbox, :] = target_bboxes[0:num_bbox, 3:6] - DC.mean_size_arr[class_ind,:]
+            #size = size_residuals[27]
 
             # construct the reference target label for each bbox
             ref_box_label = np.zeros(MAX_NUM_OBJ)
@@ -235,8 +236,8 @@ class ScannetReferenceDataset(Dataset):
         data_dict["ref_box_label"] = ref_box_label.astype(np.int64) # 0/1 reference labels for each object bbox
         #data_dict["ref_box_label"] = ref_box_label.astype(np.int64) # 0/1 reference labels for each object bbox
         data_dict["ref_center_label"] = ref_center_label.astype(np.float32)
-        #data_dict["ref_heading_class_label"] = np.array(int(ref_heading_class_label)).astype(np.int64)
-        #data_dict["ref_heading_residual_label"] = np.array(int(ref_heading_residual_label)).astype(np.int64)
+        data_dict["ref_heading_class_label"] = np.array(int(ref_heading_class_label)).astype(np.int64)
+        data_dict["ref_heading_residual_label"] = np.array(int(ref_heading_residual_label)).astype(np.int64)
         data_dict["ref_size_class_label"] = np.array(int(ref_size_class_label)).astype(np.int64)
         data_dict["ref_size_residual_label"] = ref_size_residual_label.astype(np.float32)
         data_dict["object_id"] = np.array(int(object_id)).astype(np.int64)
@@ -254,7 +255,11 @@ class ScannetReferenceDataset(Dataset):
         box_center_upright = flip_axis_to_camera_np(box_centers[None, ...])
         box_corners = get_3d_box_batch_np(raw_sizes.astype(np.float32)[None, ...],
                                     raw_angles.astype(np.float32)[None, ...],
-                                    box_center_upright)
+                                    box_centers[None, ...])#box_center_upright)
+        for l in range(raw_sizes.shape[0]):
+            box_corners[0, l] = get_3d_box(raw_sizes.astype(np.float32)[l,:],
+                                        raw_angles.astype(np.float32)[l],
+                                        box_centers[l,:])
         box_corners = box_corners.squeeze(0)
 
         data_dict["gt_box_corners"] = box_corners.astype(np.float32)
