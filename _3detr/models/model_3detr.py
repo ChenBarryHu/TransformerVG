@@ -218,7 +218,7 @@ class Model3DETR(nn.Module):
             enc_inds = torch.gather(pre_enc_inds, 1, enc_inds)
         return enc_xyz, enc_features, enc_inds
 
-    def get_box_predictions(self, query_xyz, point_cloud_dims, box_features):
+    def get_box_predictions(self, query_xyz, point_cloud_dims, box_features, data_dict):
         """
         Parameters:
             query_xyz: batch x nqueries x 3 tensor of query XYZ coords
@@ -271,6 +271,7 @@ class Model3DETR(nn.Module):
         angle_residual = angle_residual_normalized * (
             np.pi / angle_residual_normalized.shape[-1]
         )
+        box_features = box_features.reshape(num_layers, batch, num_queries, -1)
 
         outputs = []
         for l in range(num_layers):
@@ -290,7 +291,12 @@ class Model3DETR(nn.Module):
             box_corners = self.box_processor.box_parametrization_to_corners(
                 center_unnormalized, size_unnormalized, angle_continuous
             )
-
+            min_dim = box_corners.min()
+            max_dim = box_corners.max()
+            gt_min_dim = data_dict['gt_box_corners'].min()
+            gt_max_dim = data_dict['gt_box_corners'].max()
+            gt_min_dim = data_dict['gt_box_sizes_normalized'].min()
+            gt_max_dim = data_dict['gt_box_sizes_normalized'].max()
             # below are not used in computing loss (only for matching/mAP eval)
             # we compute them with no_grad() so that distributed training does not complain about unused variables
             with torch.no_grad():
@@ -315,6 +321,22 @@ class Model3DETR(nn.Module):
                 "box_corners": box_corners,
             }
             outputs.append(box_prediction)
+            
+            if l == (num_layers - 1):
+                # we append the output of the last layer to the data_dict
+                data_dict["sem_cls_logits"] = cls_logits[l]
+                data_dict["center_normalized"] = center_normalized.contiguous()
+                data_dict["center_unnormalized"] = center_unnormalized
+                data_dict["size_normalized"] = size_normalized[l]
+                data_dict["size_unnormalized"] = size_unnormalized
+                data_dict["angle_logits"] = angle_logits[l]
+                data_dict["angle_residual"] = angle_residual[l]
+                data_dict["angle_residual_normalized"] = angle_residual_normalized[l]
+                data_dict["angle_continuous"] = angle_continuous
+                data_dict["objectness_prob"] = objectness_prob
+                data_dict["sem_cls_prob"] = semcls_prob
+                data_dict["box_corners"] = box_corners
+                data_dict["box_features"] = box_features[l,...]
 
         # intermediate decoder layer outputs are only used during training
         aux_outputs = outputs[:-1]
@@ -323,14 +345,14 @@ class Model3DETR(nn.Module):
         # print(outputs["center_unnormalized"].shape)
         # print("size_unnormalized dimensions:")
         # print(outputs["size_unnormalized"].shape)
-
-        return {
+        data_dict["boxes_prediction_3detr"] = {
             "outputs": outputs,  # output from last layer of decoder
             "aux_outputs": aux_outputs,  # output from intermediate layers of decoder
-        }, box_features, num_layers, batch, channel, num_queries
+        }
 
-    def forward(self, inputs, encoder_only=False):
-        point_clouds = inputs["point_clouds"]
+
+    def forward(self, data_dict, encoder_only=False):
+        point_clouds = data_dict["point_clouds"]
 
         enc_xyz, enc_features, enc_inds = self.run_encoder(point_clouds)
         enc_features = self.encoder_to_decoder_projection(
@@ -344,8 +366,8 @@ class Model3DETR(nn.Module):
             return enc_xyz, enc_features.transpose(0, 1)
 
         point_cloud_dims = [
-            inputs["point_cloud_dims_min"],
-            inputs["point_cloud_dims_max"],
+            data_dict["point_cloud_dims_min"],
+            data_dict["point_cloud_dims_max"],
         ]
         query_xyz, query_embed = self.get_query_embeddings(
             enc_xyz, point_cloud_dims)
@@ -360,10 +382,10 @@ class Model3DETR(nn.Module):
             tgt, enc_features, query_pos=query_embed, pos=enc_pos
         )[0]
 
-        box_predictions, box_features, num_layers, batch, channel, num_queries = self.get_box_predictions(
-            query_xyz, point_cloud_dims, box_features
+        self.get_box_predictions(
+            query_xyz, point_cloud_dims, box_features, data_dict
         )
-        return box_predictions, box_features, num_layers, batch, channel, num_queries
+        
 
 
 def build_preencoder(args):

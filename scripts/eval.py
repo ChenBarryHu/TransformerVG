@@ -435,7 +435,7 @@ if __name__ == "__main__":
     parser.add_argument("--force", action="store_true", help="enforce the generation of results")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
     parser.add_argument("--repeat", type=int, default=1, help="Number of times for evaluation")
-    parser.add_argument("--no_height", action="store_true", help="Do NOT use height signal in input.")
+    parser.add_argument("--no_height", default=True, action="store_true", help="Do NOT use height signal in input.")
     parser.add_argument("--no_lang_cls", action="store_true", help="Do NOT use language classifier.")
     parser.add_argument("--no_nms", action="store_true", help="do NOT use non-maximum suppression for post-processing.")
     parser.add_argument("--use_color", action="store_true", help="Use RGB color in input.")

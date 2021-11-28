@@ -134,20 +134,26 @@ def make_args_parser():
 
 
 class RefNet(nn.Module):
-    def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, 
+    def __init__(self, args, dataset_config, num_class, num_heading_bin, num_size_cluster, mean_size_arr, 
     input_feature_dim=0, num_proposal=128, vote_factor=1, sampling="vote_fps",
     use_lang_classifier=True, use_bidir=False, no_reference=False,
     emb_size=300, hidden_size=256):
         super().__init__()
-        parser = make_args_parser()
-        args = parser.parse_args()
-        datasets, dataset_config = build_dataset(args)
         self.detr, _ = build_model(args, dataset_config)
-        weight_path = "/home/shichenhu/3dvg-transformer/weights/scannet_ep1080.pth"
-        weights = weights = torch.load(weight_path)
-        self.detr.load_state_dict(weights['model'])
-        # for param in self.detr.parameters():
-        #     param.requires_grad = False
+
+        # XXX: set the weight_path to the correct path to 3detr pretrained weights
+        weight_path = "/home/shichenhu/3dvg-transformer/weights/scannet_ep1080_epoch_600/checkpoint_best.pth"
+        if os.path.isfile(weight_path):
+            print("Loading pretrained 3detr weights")
+            weights = torch.load(weight_path)
+            self.detr.load_state_dict(weights['model'])
+        else:
+            print("Using untrained RefNet")
+
+        # freeze the weights of detector so we can focus on other modules
+        for param in self.detr.parameters():
+            param.requires_grad = False
+        
 
 
         self.num_class = num_class
@@ -165,7 +171,7 @@ class RefNet(nn.Module):
         mlp_func_feature = partial(
             GenericMLP,
             use_conv=True,
-            hidden_dims=[],
+            hidden_dims=[args.dec_dim,args.dec_dim],
             dropout=args.mlp_dropout,
             input_dim=args.dec_dim,
         )
@@ -187,6 +193,9 @@ class RefNet(nn.Module):
             # Encode the input descriptions into vectors
             # (including attention and language classification)
             self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size)
+            # freeze the lang module's weights so that the loss focus on ref loss, comment next two lines to train lang module as well
+            for param in self.lang.parameters():
+                param.requires_grad = False
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
@@ -218,53 +227,11 @@ class RefNet(nn.Module):
         #######################################
 
         # --------- HOUGH VOTING ---------
-        inputs = {
-            "point_clouds": data_dict["point_clouds"],
-            "point_cloud_dims_min": data_dict["point_cloud_dims_min"],
-            "point_cloud_dims_max": data_dict["point_cloud_dims_max"],
-        }
+        self.detr(data_dict)
+        box_features = data_dict["box_features"]
 
-        output, box_features, num_layers, batch, channel, num_queries = self.detr(inputs)
         scanrefer_features = self.feature_head(box_features).transpose(1, 2)
-        scanrefer_features = scanrefer_features.reshape(num_layers, batch, num_queries, -1)
-        scanrefer_features = scanrefer_features[-1]
-        box_corners_3detr = output["outputs"]["box_corners"]
-        size_unnormalized_3detr = output["outputs"]["size_unnormalized"]
-        angle_continuous_3detr = output["outputs"]["angle_continuous"]
-        objectness_score = torch.stack(((1-output["outputs"]["objectness_prob"]), output["outputs"]["objectness_prob"]), -1)
-        
-        
-        
-        data_dict['center_unnormalized'] = output["outputs"]["center_unnormalized"]
         data_dict['scanrefer_features'] = scanrefer_features
-        data_dict['sem_cls_scores'] = output["outputs"]["sem_cls_logits"][:,:,:-1]
-        
-        
-        
-        data_dict['objectness_scores'] = objectness_score
-        data_dict['box_corners'] = box_corners_3detr
-        data_dict['angle_continuous'] = angle_continuous_3detr
-        data_dict['size_unnormalized'] = size_unnormalized_3detr
-        data_dict['3detr_output'] = output
-
-
-        # print()
-        # data_dict = self.backbone_net(data_dict)
-        
-        # --------- HOUGH VOTING ---------
-        # xyz = data_dict["fp2_xyz"]
-        # features = data_dict["fp2_features"]
-        # data_dict["seed_inds"] = data_dict["fp2_inds"]
-        # data_dict["seed_xyz"] = xyz
-        # data_dict["seed_features"] = features
-        
-        # xyz, features = self.vgen(xyz, features)
-        # features_norm = torch.norm(features, p=2, dim=1)
-        # features = features.div(features_norm.unsqueeze(1))
-        # data_dict["vote_xyz"] = xyz
-        # data_dict["vote_features"] = features
-        # --------- PROPOSAL GENERATION ---------
-        # data_dict = self.proposal(xyz, features, data_dict)
 
         
         if not self.no_reference:

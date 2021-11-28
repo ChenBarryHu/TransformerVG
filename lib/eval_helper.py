@@ -57,8 +57,8 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
 
     batch_size, num_words, _ = data_dict["lang_feat"].shape
 
-
-    objectness_preds_batch = torch.argmax(data_dict['objectness_scores'], 2).long()
+    objectness_preds_batch = (data_dict['objectness_prob'] > 0.5).long()
+    # objectness_preds_batch = torch.argmax(data_dict['objectness_scores'], 2).long()
     objectness_labels_batch = data_dict['objectness_label'].long()
 
     if post_processing:
@@ -73,17 +73,17 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
         pred_masks = (objectness_preds_batch == 1).float()
         label_masks = (objectness_labels_batch == 1).float()
 
-    cluster_preds = torch.argmax(data_dict["cluster_ref"] * pred_masks, 1).long().unsqueeze(1).repeat(1, pred_masks.shape[1])
+    cluster_preds = torch.argmax(data_dict["cluster_ref"] * pred_masks, 1).long().unsqueeze(1).repeat(1, pred_masks.shape[1]) # cluster_ref is batch_size x 256, store confidence score for each prediction being reference ft
     preds = torch.zeros(pred_masks.shape).cuda()
     preds = preds.scatter_(1, cluster_preds, 1)
     cluster_preds = preds
-    cluster_labels = data_dict["cluster_labels"].float()
+    cluster_labels = data_dict["cluster_labels"].float() # cluster label stores the one hot encoding of which predicted box is the closest to reference box, thus serving as gt somehow
     cluster_labels *= label_masks
     
     # compute classification scores
     corrects = torch.sum((cluster_preds == 1) * (cluster_labels == 1), dim=1).float()
     labels = torch.ones(corrects.shape[0]).cuda()
-    ref_acc = corrects / (labels + 1e-8)
+    ref_acc = corrects / (labels + 1e-8) # stores how many batches out of batch_size predict the closest proposed box to be the "reference gt"
     
     # store
     data_dict["ref_acc"] = ref_acc.cpu().numpy().tolist()
@@ -152,8 +152,8 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
         # pred_size_residual = pred_size_residual.squeeze(2) # B,num_proposal,3
 
     # store
-    data_dict["pred_mask"] = pred_masks
-    data_dict["label_mask"] = label_masks
+    data_dict["pred_mask"] = pred_masks # stores by prediction, which proposals are likely to be an object
+    data_dict["label_mask"] = label_masks # stores by the distance between proposed boxes and gt boxes, which proposals are likely to be an object
     # data_dict['pred_center'] = pred_center
     # data_dict['pred_heading_class'] = pred_heading_class
     # data_dict['pred_heading_residual'] = pred_heading_residual
@@ -190,14 +190,15 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
             gt_size_residual[i, gt_ref_idx].detach().cpu().numpy()
         )
         # pred_bbox = get_3d_box(pred_obb[3:6], pred_obb[6], pred_obb[0:3])
+        # gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
         pred_bbox = box_corners_3detr[i][pred_ref_idx]
-        gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
+        gt_bbox = data_dict['gt_box_corners'][i][gt_ref_idx].cpu().numpy()
         iou = eval_ref_one_sample(pred_bbox, gt_bbox)
         ious.append(iou)
 
         # NOTE: get_3d_box() will return problematic bboxes
         # pred_bbox = construct_bbox_corners(pred_obb[0:3], pred_obb[3:6])
-        gt_bbox = construct_bbox_corners(gt_obb[0:3], gt_obb[3:6])
+        # gt_bbox = construct_bbox_corners(gt_obb[0:3], gt_obb[3:6])
         pred_bboxes.append(pred_bbox)
         gt_bboxes.append(gt_bbox)
 
@@ -225,12 +226,13 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
 
     # --------------------------------------------
     # Some other statistics
-    obj_pred_val = torch.argmax(data_dict['objectness_scores'], 2) # B,K
+    obj_pred_val = (data_dict['objectness_prob'] > 0.5).long()
+    # obj_pred_val = torch.argmax(data_dict['objectness_scores'], 2) # B,K
     obj_acc = torch.sum((obj_pred_val==data_dict['objectness_label'].long()).float()*data_dict['objectness_mask'])/(torch.sum(data_dict['objectness_mask'])+1e-6)
     data_dict['obj_acc'] = obj_acc
     # detection semantic classification
     sem_cls_label = torch.gather(data_dict['sem_cls_label'], 1, data_dict['object_assignment']) # select (B,K) from (B,K2)
-    sem_cls_pred = data_dict['sem_cls_scores'].argmax(-1) # (B,K)
+    sem_cls_pred = data_dict['sem_cls_prob'].argmax(-1) # (B,K)
     sem_match = (sem_cls_label == sem_cls_pred).float()
     data_dict["sem_acc"] = (sem_match * data_dict["pred_mask"]).sum() / data_dict["pred_mask"].sum()
 

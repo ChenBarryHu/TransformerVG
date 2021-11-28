@@ -14,7 +14,6 @@ import json
 import pickle
 import numpy as np
 import multiprocessing as mp
-import _3detr.datasets.scannet as detr_scannet
 from _3detr.utils.random_cuboid import RandomCuboid
 from _3detr.utils.pc_util import scale_points, shift_scale_points
 from torch.utils.data import Dataset
@@ -24,7 +23,7 @@ sys.path.append(os.path.join(os.getcwd(), "lib"))  # HACK add the lib folder
 
 # data setting
 DC = ScannetDatasetConfig()
-detr_DC = detr_scannet.ScannetDatasetConfig()
+
 MAX_NUM_OBJ = 128
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
 IGNORE_LABEL = -100
@@ -161,13 +160,15 @@ class ScannetReferenceDataset(Dataset):
         )
         instance_labels = instance_labels[choices]
         semantic_labels = semantic_labels[choices]
+        
+        ##################### [start] Comment out since not being used #####################
+        # sem_seg_labels = np.ones_like(semantic_labels) * IGNORE_LABEL
 
-        sem_seg_labels = np.ones_like(semantic_labels) * IGNORE_LABEL
-
-        for _c in detr_DC.nyu40ids_semseg:
-            sem_seg_labels[
-                semantic_labels == _c
-            ] = detr_DC.nyu40id2class_semseg[_c]
+        # for _c in DC.nyu40ids_semseg:
+        #     sem_seg_labels[
+        #         semantic_labels == _c
+        #     ] = DC.nyu40id2class_semseg[_c]
+        ##################### [end] Comment out since not being used #####################
 
         pcl_color = pcl_color[choices]
 
@@ -268,7 +269,7 @@ class ScannetReferenceDataset(Dataset):
             )
             box_sizes_normalized = box_sizes_normalized.squeeze(0)
 
-            box_corners = detr_DC.box_parametrization_to_corners_np(
+            box_corners = DC.box_parametrization_to_corners_np(
                 box_centers[None, ...],
                 raw_sizes.astype(np.float32)[None, ...],
                 raw_angles.astype(np.float32)[None, ...],

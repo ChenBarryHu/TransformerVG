@@ -55,7 +55,7 @@ def voc_ap(rec, prec, use_07_metric=False):
 
 
 def get_iou_obb(bb1, bb2):
-    iou3d, iou2d = box3d_iou(bb1, bb2)
+    iou3d = box3d_iou(bb1, bb2) # box3d_iou only return one item
     return iou3d
 
 

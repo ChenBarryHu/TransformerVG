@@ -54,7 +54,7 @@ def parse_predictions(end_points, config_dict):
             where pred_list_i = [(pred_sem_cls, box_params, box_score)_j]
             where j = 0, ..., num of valid detections - 1 from sample input i
     """
-    pred_center = end_points['center'] # B,num_proposal,3
+    pred_center = end_points['center_unnormalized'] # B,num_proposal,3
     pred_heading_class = torch.argmax(end_points['heading_scores'], -1) # B,num_proposal
     pred_heading_residual = torch.gather(end_points['heading_residuals'], 2,
         pred_heading_class.unsqueeze(-1)) # B,num_proposal,1

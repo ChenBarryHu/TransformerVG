@@ -115,7 +115,7 @@ def make_args_parser():
               If None, default values from scannet.py/sunrgbd.py are used",
     )
     parser.add_argument("--dataset_num_workers", default=4, type=int)
-    parser.add_argument("--batchsize_per_gpu", default=8, type=int)
+    parser.add_argument("--batchsize_per_gpu", default=8, type=int) 
 
     ##### Training #####
     parser.add_argument("--start_epoch", default=-1, type=int)
@@ -380,7 +380,7 @@ def main(local_rank, args):
         dataloaders[split] = DataLoader(
             datasets[split],
             sampler=sampler,
-            batch_size=args.batchsize_per_gpu,
+            batch_size=args.batchsize,
             num_workers=args.dataset_num_workers,
             worker_init_fn=my_worker_init_fn,
         )

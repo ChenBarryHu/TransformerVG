@@ -4,7 +4,7 @@ from easydict import EasyDict
 
 CONF = EasyDict()
 
-# path
+# FIXME: set the correct path in this file
 CONF.PATH = EasyDict()
 CONF.PATH.BASE = "/home/shichenhu/ScanRefer/" # TODO: change this
 CONF.PATH.DATA = os.path.join(CONF.PATH.BASE, "data")

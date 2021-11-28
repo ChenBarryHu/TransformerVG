@@ -19,6 +19,7 @@ from lib.loss_helper import get_loss
 from lib.eval_helper import get_eval
 from utils.eta import decode_eta
 from lib.pointnet2.pytorch_utils import BNMomentumScheduler
+from _3detr.utils.ap_calculator import APCalculator
 
 
 ITER_REPORT_TEMPLATE = """
@@ -75,7 +76,7 @@ BEST_REPORT_TEMPLATE = """
 """
 
 class Solver():
-    def __init__(self, model, config, dataloader, optimizer, stamp, val_step=10, 
+    def __init__(self, model, args, config, dataloader, optimizer, stamp, val_step=10, 
     detection=True, reference=True, use_lang_classifier=True,
     lr_decay_step=None, lr_decay_rate=None, bn_decay_step=None, bn_decay_rate=None):
 
@@ -83,6 +84,7 @@ class Solver():
         self.verbose = 0                  # set in __call__
         
         self.model = model
+        self.args=args
         self.config = config
         self.dataloader = dataloader
         self.optimizer = optimizer
@@ -180,6 +182,7 @@ class Solver():
                 self._feed(self.dataloader["train"], "train", epoch_id)
 
                 # save model
+                # TODO: uncomment the following three lines back
                 self._log("saving last models...\n")
                 model_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
                 torch.save(self.model.state_dict(), os.path.join(model_root, "model_last.pth"))
@@ -255,6 +258,7 @@ class Solver():
     def _compute_loss(self, data_dict):
         _, data_dict = get_loss(
             data_dict=data_dict, 
+            args=self.args,
             config=self.config, 
             detection=self.detection,
             reference=self.reference, 
@@ -284,7 +288,8 @@ class Solver():
         self._running_log["iou_rate_0.25"] = np.mean(data_dict["ref_iou_rate_0.25"])
         self._running_log["iou_rate_0.5"] = np.mean(data_dict["ref_iou_rate_0.5"])
 
-    def _feed(self, dataloader, phase, epoch_id):
+    def _feed(self, dataloader, phase, epoch_id, ap=False): # for now, encode ap as False manually
+
         # switch mode
         self._set_phase(phase)
 
@@ -293,6 +298,14 @@ class Solver():
 
         # change dataloader
         dataloader = dataloader if phase == "train" else tqdm(dataloader)
+
+        # if phase == "val":
+        ap_calculator = APCalculator(
+            dataset_config=self.config,
+            ap_iou_thresh=[0.25, 0.5],
+            class2type_map=self.config.class2type,
+            exact_eval=True,
+        )
 
         for data_dict in dataloader:
             # move to cuda
@@ -305,9 +318,10 @@ class Solver():
                 "loss": 0,
                 "ref_loss": 0,
                 "lang_loss": 0,
-                "objectness_loss": 0,
-                "vote_loss": 0,
-                "box_loss": 0,
+                "3detr_loss":0,
+                # "objectness_loss": 0,
+                # "vote_loss": 0,
+                # "box_loss": 0,
                 # acc
                 "lang_acc": 0,
                 "ref_acc": 0,
@@ -333,12 +347,31 @@ class Solver():
                     start = time.time()
                     self._backward()
                     self.log[phase]["backward"].append(time.time() - start)
-            
+            # manually create the batch_data_label
+            batch_data_label = {}
+            batch_data_label["point_clouds"] = data_dict["point_clouds"]
+            batch_data_label["gt_box_corners"] = data_dict["gt_box_corners"]
+            batch_data_label["gt_box_centers"] = data_dict["center_label"]
+            batch_data_label["gt_box_centers_normalized"] = data_dict["gt_box_centers_normalized"]
+            batch_data_label["gt_angle_residual_label"] = data_dict["heading_residual_label"]
+            batch_data_label["gt_box_sem_cls_label"] = data_dict["sem_cls_label"]
+            batch_data_label["gt_box_present"] = data_dict["box_label_mask"]
+            batch_data_label["scan_idx"] = data_dict["scan_idx"]
+            batch_data_label["pcl_color"] = data_dict["pcl_color"]
+            batch_data_label["gt_box_sizes"] = data_dict["gt_box_sizes"]
+            batch_data_label["gt_box_sizes_normalized"] = data_dict["gt_box_sizes_normalized"]
+            batch_data_label["gt_box_angles"] = data_dict["gt_box_angles"]
+            batch_data_label["point_cloud_dims_min"] = data_dict["point_cloud_dims_min"]
+            batch_data_label["point_cloud_dims_max"] = data_dict["point_cloud_dims_max"]
+
+
+            if ap:
+                ap_calculator.step_meter(data_dict['boxes_prediction_3detr'], batch_data_label)
             # eval
             start = time.time()
             self._eval(data_dict)
             self.log[phase]["eval"].append(time.time() - start)
-
+            
             # record log
             self.log[phase]["loss"].append(self._running_log["loss"].item())
             self.log[phase]["ref_loss"].append(self._running_log["ref_loss"].item())
@@ -361,9 +394,17 @@ class Solver():
                 iter_time += self.log[phase]["eval"][-1]
                 self.log[phase]["iter_time"].append(iter_time)
                 if (self._global_iter_id + 1) % self.verbose == 0:
+                    
                     self._train_report(epoch_id)
 
+                if ap and (self._global_iter_id + 1) % 200 == 0: # AP calculation
+                    
+                    metrics = ap_calculator.compute_metrics()
+                    metric_str = ap_calculator.metrics_to_str(metrics, per_class=True)
+                    print(metric_str)
+
                 # evaluation
+                # if self._global_iter_id % self.val_step == 0 and self._global_iter_id != 0:
                 if self._global_iter_id % self.val_step == 0:
                     print("evaluating...")
                     # val
@@ -375,7 +416,8 @@ class Solver():
                 # dump log
                 self._dump_log("train")
                 self._global_iter_id += 1
-
+    
+        
 
         # check best
         if phase == "val":

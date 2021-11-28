@@ -75,38 +75,39 @@ class ScannetDatasetConfig(object):
                     self.nyu40id2class[nyu40_id] = self.type2class[nyu40_name]
 
         # Semantic Segmentation Classes. Not used in 3DETR
-        self.num_class_semseg = 20
-        self.type2class_semseg = {
-            "wall": 0,
-            "floor": 1,
-            "cabinet": 2,
-            "bed": 3,
-            "chair": 4,
-            "sofa": 5,
-            "table": 6,
-            "door": 7,
-            "window": 8,
-            "bookshelf": 9,
-            "picture": 10,
-            "counter": 11,
-            "desk": 12,
-            "curtain": 13,
-            "refrigerator": 14,
-            "showercurtrain": 15,
-            "toilet": 16,
-            "sink": 17,
-            "bathtub": 18,
-            "garbagebin": 19,
-        }
-        self.class2type_semseg = {
-            self.type2class_semseg[t]: t for t in self.type2class_semseg
-        }
-        self.nyu40ids_semseg = np.array(
-            [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
-        )
-        self.nyu40id2class_semseg = {
-            nyu40id: i for i, nyu40id in enumerate(list(self.nyu40ids_semseg))
-        }
+        # comment out since it is not used
+        # self.num_class_semseg = 20
+        # self.type2class_semseg = {
+        #     "wall": 0,
+        #     "floor": 1,
+        #     "cabinet": 2,
+        #     "bed": 3,
+        #     "chair": 4,
+        #     "sofa": 5,
+        #     "table": 6,
+        #     "door": 7,
+        #     "window": 8,
+        #     "bookshelf": 9,
+        #     "picture": 10,
+        #     "counter": 11,
+        #     "desk": 12,
+        #     "curtain": 13,
+        #     "refrigerator": 14,
+        #     "showercurtrain": 15,
+        #     "toilet": 16,
+        #     "sink": 17,
+        #     "bathtub": 18,
+        #     "garbagebin": 19,
+        # }
+        # self.class2type_semseg = {
+        #     self.type2class_semseg[t]: t for t in self.type2class_semseg
+        # }
+        # self.nyu40ids_semseg = np.array(
+        #     [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+        # ) # WRONG: this modification might cause problems
+        # self.nyu40id2class_semseg = {
+        #     nyu40id: i for i, nyu40id in enumerate(list(self.nyu40ids_semseg))
+        # }
 
     def angle2class(self, angle):
         raise ValueError("ScanNet does not have rotated bounding boxes.")
