@@ -65,7 +65,8 @@ class ProposalModule(nn.Module):
         data_dict['aggregated_vote_xyz'] = xyz # (batch_size, num_proposal, 3)
         data_dict['aggregated_vote_features'] = features.permute(0, 2, 1).contiguous() # (batch_size, num_proposal, 128)
         data_dict['aggregated_vote_inds'] = sample_inds # (batch_size, num_proposal,) # should be 0,1,2,...,num_proposal
-
+        # print(f"xyz dimension: {xyz.shape}")
+        # print(f"features dimension: {data_dict['aggregated_vote_features'].shape}")
         # --------- PROPOSAL GENERATION ---------
         net = self.proposal(features)
         data_dict = self.decode_scores(net, data_dict, self.num_class, self.num_heading_bin, self.num_size_cluster, self.mean_size_arr)

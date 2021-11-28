@@ -9,6 +9,8 @@ import os
 sys.path.append(os.path.join(os.getcwd(), os.pardir, "lib")) # HACK add the lib folder
 from lib.config import CONF
 from utils.box_util import get_3d_box
+from _3detr.utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
+                            get_3d_box_batch_np, get_3d_box_batch_tensor)
 
 def in_hull(p, hull):
     from scipy.spatial import Delaunay
@@ -80,16 +82,24 @@ def rotate_aligned_boxes_along_axis(input_boxes, rot_mat, axis):
 
 class ScannetDatasetConfig(object):
     def __init__(self):
+        ############################# [start] FROM 3detr ##############################
+        self.num_angle_bin = 1 # should be the same as the "self.num_heading_bin" from scanrefer
+        self.num_semcls = 18 # shoudl be the same as the "self.num_class" from scanrefer
+        ############################ [end] FROM 3detr ################################
         self.type2class = {'cabinet':0, 'bed':1, 'chair':2, 'sofa':3, 'table':4, 'door':5,
             'window':6,'bookshelf':7,'picture':8, 'counter':9, 'desk':10, 'curtain':11,
             'refrigerator':12, 'shower curtain':13, 'toilet':14, 'sink':15, 'bathtub':16, 'others':17}  
+
         self.class2type = {self.type2class[t]:t for t in self.type2class}
 
         self.nyu40ids = np.array([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]) # exclude wall (1), floor (2), ceiling (22)
         self.nyu40id2class = self._get_nyu40id2class()
+        
         self.mean_size_arr = np.load(os.path.join(CONF.PATH.SCANNET, 'meta_data/scannet_reference_means.npz'))['arr_0']
 
         self.num_class = len(self.type2class.keys())
+        assert self.num_class == 18
+
         self.num_heading_bin = 1
         self.num_size_cluster = len(self.type2class.keys())
 
@@ -126,6 +136,14 @@ class ScannetDatasetConfig(object):
             NOT USED.
         '''
         assert(False)
+
+    def class2anglebatch_tensor(self, pred_cls, residual, to_label_format=True):
+        zero_angle = torch.zeros(
+            (pred_cls.shape[0], pred_cls.shape[1]),
+            dtype=torch.float32,
+            device=pred_cls.device,
+        )
+        return zero_angle
     
     def class2angle(self, pred_cls, residual, to_label_format=True):
         ''' Inverse function to angle2class.
@@ -137,7 +155,11 @@ class ScannetDatasetConfig(object):
         ''' Inverse function to angle2class.
         
         As ScanNet only has axis-alined boxes so angles are always 0. '''
-        return np.zeros(pred_cls.shape[0])
+        return np.zeros(pred_cls.shape[0], dtype=np.float32)
+
+    def class2anglebatch(self, pred_cls, residual, to_label_format=True):
+        zero_angle = np.zeros(pred_cls.shape[0], dtype=np.float32)
+        return zero_angle
 
     def size2class(self, size, type_name):
         ''' Convert 3D box size (l,w,h) to size class and size residual '''
@@ -153,16 +175,17 @@ class ScannetDatasetConfig(object):
         ''' Inverse function to size2class '''      
         return self.mean_size_arr[pred_cls] + residual
 
-    def param2obb(self, center, heading_class, heading_residual, size_class, size_residual):
+    def param2obb(self, center, heading_class, heading_residual, size_class, size_residual, box_size=None):
         heading_angle = self.class2angle(heading_class, heading_residual)
-        box_size = self.class2size(int(size_class), size_residual)
+        if box_size is None:
+            box_size = self.class2size(int(size_class), size_residual)
         obb = np.zeros((7,))
         obb[0:3] = center
         obb[3:6] = box_size
         obb[6] = heading_angle*-1
         return obb
 
-    def param2obb_batch(self, center, heading_class, heading_residual, size_class, size_residual):
+    def param2obb_batch(self, center, heading_class, heading_residual, size_class, size_residual, box_size=None):
         heading_angle = self.class2angle_batch(heading_class, heading_residual)
         box_size = self.class2size_batch(size_class, size_residual)
         obb = np.zeros((heading_class.shape[0], 7))
@@ -170,3 +193,42 @@ class ScannetDatasetConfig(object):
         obb[:, 3:6] = box_size
         obb[:, 6] = heading_angle*-1
         return obb
+
+
+    ############################# [start] FROM 3detr ##############################
+    def box_parametrization_to_corners(self, box_center_unnorm, box_size, box_angle):
+        box_center_upright = flip_axis_to_camera_tensor(box_center_unnorm)
+        boxes = get_3d_box_batch_tensor(
+            box_size, box_angle, box_center_upright)
+        return boxes
+
+    def box_parametrization_to_corners_np(self, box_center_unnorm, box_size, box_angle):
+        box_center_upright = flip_axis_to_camera_np(box_center_unnorm)
+        boxes = get_3d_box_batch_np(box_size, box_angle, box_center_upright)
+        return boxes
+
+
+    @staticmethod
+    def rotate_aligned_boxes(input_boxes, rot_mat):
+        centers, lengths = input_boxes[:, 0:3], input_boxes[:, 3:6]
+        new_centers = np.dot(centers, np.transpose(rot_mat))
+
+        dx, dy = lengths[:, 0] / 2.0, lengths[:, 1] / 2.0
+        new_x = np.zeros((dx.shape[0], 4))
+        new_y = np.zeros((dx.shape[0], 4))
+
+        for i, crnr in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):
+            crnrs = np.zeros((dx.shape[0], 3))
+            crnrs[:, 0] = crnr[0] * dx
+            crnrs[:, 1] = crnr[1] * dy
+            crnrs = np.dot(crnrs, np.transpose(rot_mat))
+            new_x[:, i] = crnrs[:, 0]
+            new_y[:, i] = crnrs[:, 1]
+
+        new_dx = 2.0 * np.max(new_x, 1)
+        new_dy = 2.0 * np.max(new_y, 1)
+        new_lengths = np.stack((new_dx, new_dy, lengths[:, 2]), axis=1)
+
+        return np.concatenate([new_centers, new_lengths], axis=1)
+
+    ############################# [end] FROM 3detr ##############################

@@ -19,6 +19,7 @@ from lib.loss_helper import get_loss
 from lib.eval_helper import get_eval
 from utils.eta import decode_eta
 from lib.pointnet2.pytorch_utils import BNMomentumScheduler
+from _3detr.utils.ap_calculator import APCalculator
 
 
 ITER_REPORT_TEMPLATE = """
@@ -26,10 +27,7 @@ ITER_REPORT_TEMPLATE = """
 [loss] train_loss: {train_loss}
 [loss] train_ref_loss: {train_ref_loss}
 [loss] train_lang_loss: {train_lang_loss}
-[loss] train_objectness_loss: {train_objectness_loss}
-[loss] train_vote_loss: {train_vote_loss}
-[loss] train_box_loss: {train_box_loss}
-[loss] train_lang_acc: {train_lang_acc}
+[loss] train_3detr_loss: {train_3detr_loss}
 [sco.] train_ref_acc: {train_ref_acc}
 [sco.] train_obj_acc: {train_obj_acc}
 [sco.] train_pos_ratio: {train_pos_ratio}, train_neg_ratio: {train_neg_ratio}
@@ -47,9 +45,7 @@ EPOCH_REPORT_TEMPLATE = """
 [train] train_loss: {train_loss}
 [train] train_ref_loss: {train_ref_loss}
 [train] train_lang_loss: {train_lang_loss}
-[train] train_objectness_loss: {train_objectness_loss}
-[train] train_vote_loss: {train_vote_loss}
-[train] train_box_loss: {train_box_loss}
+[loss] train_3detr_loss: {train_3detr_loss}
 [train] train_lang_acc: {train_lang_acc}
 [train] train_ref_acc: {train_ref_acc}
 [train] train_obj_acc: {train_obj_acc}
@@ -58,9 +54,6 @@ EPOCH_REPORT_TEMPLATE = """
 [val]   val_loss: {val_loss}
 [val]   val_ref_loss: {val_ref_loss}
 [val]   val_lang_loss: {val_lang_loss}
-[val]   val_objectness_loss: {val_objectness_loss}
-[val]   val_vote_loss: {val_vote_loss}
-[val]   val_box_loss: {val_box_loss}
 [val]   val_lang_acc: {val_lang_acc}
 [val]   val_ref_acc: {val_ref_acc}
 [val]   val_obj_acc: {val_obj_acc}
@@ -74,9 +67,7 @@ BEST_REPORT_TEMPLATE = """
 [loss] loss: {loss}
 [loss] ref_loss: {ref_loss}
 [loss] lang_loss: {lang_loss}
-[loss] objectness_loss: {objectness_loss}
-[loss] vote_loss: {vote_loss}
-[loss] box_loss: {box_loss}
+[loss] 3detr_loss: {lang_loss}
 [loss] lang_acc: {lang_acc}
 [sco.] ref_acc: {ref_acc}
 [sco.] obj_acc: {obj_acc}
@@ -85,7 +76,7 @@ BEST_REPORT_TEMPLATE = """
 """
 
 class Solver():
-    def __init__(self, model, config, dataloader, optimizer, stamp, val_step=10, 
+    def __init__(self, model, args, config, dataloader, optimizer, stamp, val_step=10, 
     detection=True, reference=True, use_lang_classifier=True,
     lr_decay_step=None, lr_decay_rate=None, bn_decay_step=None, bn_decay_rate=None):
 
@@ -93,6 +84,7 @@ class Solver():
         self.verbose = 0                  # set in __call__
         
         self.model = model
+        self.args=args
         self.config = config
         self.dataloader = dataloader
         self.optimizer = optimizer
@@ -190,6 +182,7 @@ class Solver():
                 self._feed(self.dataloader["train"], "train", epoch_id)
 
                 # save model
+                # TODO: uncomment the following three lines back
                 self._log("saving last models...\n")
                 model_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
                 torch.save(self.model.state_dict(), os.path.join(model_root, "model_last.pth"))
@@ -229,6 +222,7 @@ class Solver():
             "loss": [],
             "ref_loss": [],
             "lang_loss": [],
+            "3detr_loss": [],
             "objectness_loss": [],
             "vote_loss": [],
             "box_loss": [],
@@ -264,6 +258,7 @@ class Solver():
     def _compute_loss(self, data_dict):
         _, data_dict = get_loss(
             data_dict=data_dict, 
+            args=self.args,
             config=self.config, 
             detection=self.detection,
             reference=self.reference, 
@@ -273,9 +268,7 @@ class Solver():
         # dump
         self._running_log["ref_loss"] = data_dict["ref_loss"]
         self._running_log["lang_loss"] = data_dict["lang_loss"]
-        self._running_log["objectness_loss"] = data_dict["objectness_loss"]
-        self._running_log["vote_loss"] = data_dict["vote_loss"]
-        self._running_log["box_loss"] = data_dict["box_loss"]
+        self._running_log["3detr_loss"] = data_dict["3detr_loss"]
         self._running_log["loss"] = data_dict["loss"]
 
     def _eval(self, data_dict):
@@ -295,7 +288,8 @@ class Solver():
         self._running_log["iou_rate_0.25"] = np.mean(data_dict["ref_iou_rate_0.25"])
         self._running_log["iou_rate_0.5"] = np.mean(data_dict["ref_iou_rate_0.5"])
 
-    def _feed(self, dataloader, phase, epoch_id):
+    def _feed(self, dataloader, phase, epoch_id, ap=False): # for now, encode ap as False manually
+
         # switch mode
         self._set_phase(phase)
 
@@ -304,6 +298,14 @@ class Solver():
 
         # change dataloader
         dataloader = dataloader if phase == "train" else tqdm(dataloader)
+
+        # if phase == "val":
+        ap_calculator = APCalculator(
+            dataset_config=self.config,
+            ap_iou_thresh=[0.25, 0.5],
+            class2type_map=self.config.class2type,
+            exact_eval=True,
+        )
 
         for data_dict in dataloader:
             # move to cuda
@@ -316,9 +318,10 @@ class Solver():
                 "loss": 0,
                 "ref_loss": 0,
                 "lang_loss": 0,
-                "objectness_loss": 0,
-                "vote_loss": 0,
-                "box_loss": 0,
+                "3detr_loss":0,
+                # "objectness_loss": 0,
+                # "vote_loss": 0,
+                # "box_loss": 0,
                 # acc
                 "lang_acc": 0,
                 "ref_acc": 0,
@@ -344,19 +347,36 @@ class Solver():
                     start = time.time()
                     self._backward()
                     self.log[phase]["backward"].append(time.time() - start)
-            
+            # manually create the batch_data_label
+            batch_data_label = {}
+            batch_data_label["point_clouds"] = data_dict["point_clouds"]
+            batch_data_label["gt_box_corners"] = data_dict["gt_box_corners"]
+            batch_data_label["gt_box_centers"] = data_dict["center_label"]
+            batch_data_label["gt_box_centers_normalized"] = data_dict["gt_box_centers_normalized"]
+            batch_data_label["gt_angle_residual_label"] = data_dict["heading_residual_label"]
+            batch_data_label["gt_box_sem_cls_label"] = data_dict["sem_cls_label"]
+            batch_data_label["gt_box_present"] = data_dict["box_label_mask"]
+            batch_data_label["scan_idx"] = data_dict["scan_idx"]
+            batch_data_label["pcl_color"] = data_dict["pcl_color"]
+            batch_data_label["gt_box_sizes"] = data_dict["gt_box_sizes"]
+            batch_data_label["gt_box_sizes_normalized"] = data_dict["gt_box_sizes_normalized"]
+            batch_data_label["gt_box_angles"] = data_dict["gt_box_angles"]
+            batch_data_label["point_cloud_dims_min"] = data_dict["point_cloud_dims_min"]
+            batch_data_label["point_cloud_dims_max"] = data_dict["point_cloud_dims_max"]
+
+
+            if ap:
+                ap_calculator.step_meter(data_dict['boxes_prediction_3detr'], batch_data_label)
             # eval
             start = time.time()
             self._eval(data_dict)
             self.log[phase]["eval"].append(time.time() - start)
-
+            
             # record log
             self.log[phase]["loss"].append(self._running_log["loss"].item())
             self.log[phase]["ref_loss"].append(self._running_log["ref_loss"].item())
             self.log[phase]["lang_loss"].append(self._running_log["lang_loss"].item())
-            self.log[phase]["objectness_loss"].append(self._running_log["objectness_loss"].item())
-            self.log[phase]["vote_loss"].append(self._running_log["vote_loss"].item())
-            self.log[phase]["box_loss"].append(self._running_log["box_loss"].item())
+            self.log[phase]["3detr_loss"].append(self._running_log["3detr_loss"].item())
 
             self.log[phase]["lang_acc"].append(self._running_log["lang_acc"])
             self.log[phase]["ref_acc"].append(self._running_log["ref_acc"])
@@ -374,9 +394,17 @@ class Solver():
                 iter_time += self.log[phase]["eval"][-1]
                 self.log[phase]["iter_time"].append(iter_time)
                 if (self._global_iter_id + 1) % self.verbose == 0:
+                    
                     self._train_report(epoch_id)
 
+                if ap and (self._global_iter_id + 1) % 200 == 0: # AP calculation
+                    
+                    metrics = ap_calculator.compute_metrics()
+                    metric_str = ap_calculator.metrics_to_str(metrics, per_class=True)
+                    print(metric_str)
+
                 # evaluation
+                # if self._global_iter_id % self.val_step == 0 and self._global_iter_id != 0:
                 if self._global_iter_id % self.val_step == 0:
                     print("evaluating...")
                     # val
@@ -388,7 +416,8 @@ class Solver():
                 # dump log
                 self._dump_log("train")
                 self._global_iter_id += 1
-
+    
+        
 
         # check best
         if phase == "val":
@@ -402,9 +431,7 @@ class Solver():
                 self.best["loss"] = np.mean(self.log[phase]["loss"])
                 self.best["ref_loss"] = np.mean(self.log[phase]["ref_loss"])
                 self.best["lang_loss"] = np.mean(self.log[phase]["lang_loss"])
-                self.best["objectness_loss"] = np.mean(self.log[phase]["objectness_loss"])
-                self.best["vote_loss"] = np.mean(self.log[phase]["vote_loss"])
-                self.best["box_loss"] = np.mean(self.log[phase]["box_loss"])
+                self.best["3detr_loss"] = np.mean(self.log[phase]["3detr_loss"])
                 self.best["lang_acc"] = np.mean(self.log[phase]["lang_acc"])
                 self.best["ref_acc"] = np.mean(self.log[phase]["ref_acc"])
                 self.best["obj_acc"] = np.mean(self.log[phase]["obj_acc"])
@@ -420,7 +447,7 @@ class Solver():
 
     def _dump_log(self, phase):
         log = {
-            "loss": ["loss", "ref_loss", "lang_loss", "objectness_loss", "vote_loss", "box_loss"],
+            "loss": ["loss", "ref_loss", "lang_loss"],
             "score": ["lang_acc", "ref_acc", "obj_acc", "pos_ratio", "neg_ratio", "iou_rate_0.25", "iou_rate_0.5"]
         }
         for key in log:
@@ -476,6 +503,7 @@ class Solver():
             train_loss=round(np.mean([v for v in self.log["train"]["loss"]]), 5),
             train_ref_loss=round(np.mean([v for v in self.log["train"]["ref_loss"]]), 5),
             train_lang_loss=round(np.mean([v for v in self.log["train"]["lang_loss"]]), 5),
+            train_3detr_loss=round(np.mean([v for v in self.log["train"]["3detr_loss"]]), 5),
             train_objectness_loss=round(np.mean([v for v in self.log["train"]["objectness_loss"]]), 5),
             train_vote_loss=round(np.mean([v for v in self.log["train"]["vote_loss"]]), 5),
             train_box_loss=round(np.mean([v for v in self.log["train"]["box_loss"]]), 5),
@@ -503,6 +531,7 @@ class Solver():
             train_loss=round(np.mean([v for v in self.log["train"]["loss"]]), 5),
             train_ref_loss=round(np.mean([v for v in self.log["train"]["ref_loss"]]), 5),
             train_lang_loss=round(np.mean([v for v in self.log["train"]["lang_loss"]]), 5),
+            train_3detr_loss=round(np.mean([v for v in self.log["train"]["3detr_loss"]]), 5),
             train_objectness_loss=round(np.mean([v for v in self.log["train"]["objectness_loss"]]), 5),
             train_vote_loss=round(np.mean([v for v in self.log["train"]["vote_loss"]]), 5),
             train_box_loss=round(np.mean([v for v in self.log["train"]["box_loss"]]), 5),

@@ -10,6 +10,8 @@ scans
 enet_features
 data/scannet/tasks/
 data/frames_square/
+_3detr/datasets/scannet/
+3detr/datasets/scannet/
 
 # cache
 data/scannet/__pycache__
@@ -35,3 +37,6 @@ demo/.DS_Store
 
 # misc
 upload/
+
+# vscode
+.vscode/
