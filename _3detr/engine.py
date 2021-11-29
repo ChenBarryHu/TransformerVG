@@ -85,11 +85,8 @@ def train_one_epoch(
             "point_cloud_dims_max": batch_data_label["point_cloud_dims_max"],
         }
         outputs = model(inputs)
-        print(f"length of output predections: {len(outputs)}")
         # Compute loss
         loss, loss_dict = criterion(outputs, batch_data_label)
-        print(f"loss dimension: {loss.shape}")
-        print(f"loss_dict dimension: {loss_dict.shape}")
         loss_reduced = all_reduce_average(loss)
         loss_dict_reduced = reduce_dict(loss_dict)
 
