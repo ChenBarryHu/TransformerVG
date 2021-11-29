@@ -173,13 +173,22 @@ class Solver():
         self.verbose = verbose
         self._total_iter["train"] = len(self.dataloader["train"]) * epoch
         self._total_iter["val"] = len(self.dataloader["val"]) * self.val_step
-        
+        self.val_epoch_step = 1
         for epoch_id in range(epoch):
             try:
                 self._log("epoch {} starting...".format(epoch_id + 1))
 
-                # feed 
+                # feed for training 
                 self._feed(self.dataloader["train"], "train", epoch_id)
+
+                # evaluation
+                if (epoch_id+1) % self.val_epoch_step == 0 and epoch_id != 0:
+                    print("evaluating...")
+                    # val
+                    self._feed(self.dataloader["val"], "val", epoch_id)
+                    self._dump_log("val")
+                    self._set_phase("train")
+                    self._epoch_report(epoch_id)
 
                 # save model
                 # TODO: uncomment the following three lines back
@@ -403,15 +412,6 @@ class Solver():
                     metric_str = ap_calculator.metrics_to_str(metrics, per_class=True)
                     print(metric_str)
 
-                # evaluation
-                # if self._global_iter_id % self.val_step == 0 and self._global_iter_id != 0:
-                if self._global_iter_id % self.val_step == 0:
-                    print("evaluating...")
-                    # val
-                    self._feed(self.dataloader["val"], "val", epoch_id)
-                    self._dump_log("val")
-                    self._set_phase("train")
-                    self._epoch_report(epoch_id)
 
                 # dump log
                 self._dump_log("train")
@@ -447,7 +447,7 @@ class Solver():
 
     def _dump_log(self, phase):
         log = {
-            "loss": ["loss", "ref_loss", "lang_loss"],
+            "loss": ["loss", "ref_loss", "lang_loss", "3detr_loss"],
             "score": ["lang_acc", "ref_acc", "obj_acc", "pos_ratio", "neg_ratio", "iou_rate_0.25", "iou_rate_0.5"]
         }
         for key in log:
