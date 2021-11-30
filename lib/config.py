@@ -12,6 +12,7 @@ CONF.PATH.SCANNET = os.path.join(CONF.PATH.DATA, "scannet")
 CONF.PATH.LIB = os.path.join(CONF.PATH.BASE, "lib")
 CONF.PATH.MODELS = os.path.join(CONF.PATH.BASE, "models")
 CONF.PATH.UTILS = os.path.join(CONF.PATH.BASE, "utils")
+CONF.PATH.CODEBASE = "/home/shichenhu/3dvg-transformer/"
 
 # append to syspath
 for _, path in CONF.PATH.items():
@@ -43,7 +44,7 @@ CONF.SCANNETV2_TEST = os.path.join(CONF.PATH.SCANNET_META, "scannetv2_test.txt")
 CONF.SCANNETV2_LIST = os.path.join(CONF.PATH.SCANNET_META, "scannetv2.txt")
 
 # output
-CONF.PATH.OUTPUT = os.path.join(CONF.PATH.BASE, "outputs")
+CONF.PATH.OUTPUT = os.path.join(CONF.PATH.CODEBASE, "outputs")
 
 # train
 CONF.TRAIN = EasyDict()
