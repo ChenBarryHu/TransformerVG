@@ -321,7 +321,7 @@ class SetCriterion(nn.Module):
             outputs["box_corners"],
             targets["gt_box_corners"],
             targets["nactual_gt"],
-            rotated_boxes=torch.any(targets["gt_box_angles"] > 0).item(),
+            rotated_boxes=False, #torch.any(targets["gt_box_angles"] > 0).item(),   #CHANGED: This is always 0 for ScanRefer
             needs_grad=(self.loss_weight_dict["loss_giou_weight"] > 0),
         )
 
@@ -342,7 +342,11 @@ class SetCriterion(nn.Module):
             ) or loss_wt_key not in self.loss_weight_dict:
                 # only compute losses with loss_wt > 0
                 # certain losses like cardinality are only logged and have no loss weight
-                curr_loss = self.loss_functions[k](outputs, targets, assignments)
+                if k != "loss_angle":
+                    curr_loss = self.loss_functions[k](outputs, targets, assignments)
+                else:
+                    curr_loss = {"loss_angle_cls": torch.zeros(1, device="cuda:0").squeeze(), #Might have to be changed in case cuda 0 doesn't work.
+                                 "loss_angle_reg": torch.zeros(1, device="cuda:0").squeeze()}
                 losses.update(curr_loss)
 
         final_loss = 0

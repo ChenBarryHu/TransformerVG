@@ -720,7 +720,7 @@ def generalized_box3d_iou(
     corners1: torch.Tensor,
     corners2: torch.Tensor,
     nums_k2: torch.Tensor,
-    rotated_boxes: bool = True,
+    rotated_boxes: bool = True,  #CHANGED: This is always 0 for ScanRefer
     return_inter_vols_only: bool = False,
     needs_grad: bool = False,
 ):

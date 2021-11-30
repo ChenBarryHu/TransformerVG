@@ -162,8 +162,8 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
 
     gt_ref = torch.argmax(data_dict["ref_box_label"], 1)
     gt_center = data_dict['center_label'] # (B,MAX_NUM_OBJ,3)
-    gt_heading_class = data_dict['heading_class_label'] # B,K2
-    gt_heading_residual = data_dict['heading_residual_label'] # B,K2
+    gt_heading_class = torch.zeros((gt_center.shape[0], gt_center.shape[1])).cuda()  #data_dict['heading_class_label'] # B,K2 --> ALWAYS 0 FOR SCANNET
+    gt_heading_residual = torch.zeros((gt_center.shape[0], gt_center.shape[1])).cuda()  #'data_dict['heading_residual_label'] # B,K2 --> ALWAYS 0 FOR SCANNET
     gt_size_class = data_dict['size_class_label'] # B,K2
     gt_size_residual = data_dict['size_residual_label'] # B,K2,3
     box_corners_3detr = data_dict['box_corners'].detach().cpu().numpy()

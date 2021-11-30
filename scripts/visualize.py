@@ -355,8 +355,8 @@ def dump_results(args, scanrefer, data, config):
     
     # ground truth
     gt_center = data['center_label'].cpu().numpy() # (B,MAX_NUM_OBJ,3)
-    gt_heading_class = data['heading_class_label'].cpu().numpy() # B,K2
-    gt_heading_residual = data['heading_residual_label'].cpu().numpy() # B,K2
+    gt_heading_class = torch.zeros((gt_center.shape[0], gt_center.shape[1])).cpu().numpy()  #data['heading_class_label'].cpu().numpy() # B,K2 --> ALWAYS 0 FOR SCANNET
+    gt_heading_residual = torch.zeros((gt_center.shape[0], gt_center.shape[1])).cpu().numpy()#data['heading_residual_label'].cpu().numpy() # B,K2 --> ALWAYS 0 FOR SCANNET
     gt_size_class = data['size_class_label'].cpu().numpy() # B,K2
     gt_size_residual = data['size_residual_label'].cpu().numpy() # B,K2,3
     # reference
