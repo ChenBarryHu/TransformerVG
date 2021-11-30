@@ -162,8 +162,8 @@ class SetCriterion(nn.Module):
         angle_residual = outputs["angle_residual_normalized"]
 
         if targets["num_boxes_replica"] > 0:
-            gt_angle_label = targets["heading_class_label"]
-            gt_angle_residual = targets["heading_residual_label"]
+            gt_angle_label = torch.zeros((angle_logits.shape[0], 128), dtype=torch.long).cuda()  #targets["heading_class_label"] --> 128 = MAX_NUM_OBJ
+            gt_angle_residual = torch.zeros((angle_logits.shape[0], 128), dtype=torch.long).cuda()  #targets["heading_residual_label"] --> 128 = MAX_NUM_OBJ
             gt_angle_residual_normalized = gt_angle_residual / (
                 np.pi / self.dataset_config.num_angle_bin
             )
@@ -342,11 +342,7 @@ class SetCriterion(nn.Module):
             ) or loss_wt_key not in self.loss_weight_dict:
                 # only compute losses with loss_wt > 0
                 # certain losses like cardinality are only logged and have no loss weight
-                if k != "loss_angle":
-                    curr_loss = self.loss_functions[k](outputs, targets, assignments)
-                else:
-                    curr_loss = {"loss_angle_cls": torch.zeros(1, device="cuda:0").squeeze(), #Might have to be changed in case cuda 0 doesn't work.
-                                 "loss_angle_reg": torch.zeros(1, device="cuda:0").squeeze()}
+                curr_loss = self.loss_functions[k](outputs, targets, assignments)
                 losses.update(curr_loss)
 
         final_loss = 0
