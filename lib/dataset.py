@@ -120,11 +120,11 @@ class ScannetReferenceDataset(Dataset):
             point_cloud = np.concatenate([point_cloud, multiview], 1)
 
         if self.use_height:
-            print("use height")
+            # print("use height")
             floor_height = np.percentile(point_cloud[:,2],0.99)
             height = point_cloud[:,2] - floor_height
             point_cloud = np.concatenate([point_cloud, np.expand_dims(height, 1)],1)
-            print(f"pointcloud dimension using height: {point_cloud.shape}")
+            # print(f"pointcloud dimension using height: {point_cloud.shape}")
 
         # from scanrefer
         # point_cloud, choices = random_sampling(point_cloud, self.num_points, return_choices=True)

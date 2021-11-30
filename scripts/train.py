@@ -33,19 +33,19 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         scanrefer_all_scene=all_scene_list, 
         split=split, 
         num_points=args.num_points, 
-        use_height=(not args.no_height),
+        use_height=args.use_height,
         use_color=args.use_color, 
         use_normal=args.use_normal, 
         use_multiview=args.use_multiview
     )
     # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     return dataset, dataloader
 
 def get_model(args, dataset_config):
     # initiate model
-    input_channels = int(args.use_multiview) * 128 + int(args.use_normal) * 3 + int(args.use_color) * 3 + int(not args.no_height)
+    input_channels = int(args.use_multiview) * 128 + int(args.use_normal) * 3 + int(args.use_color) * 3 + int(args.use_height)
     model = RefNet(
         args=args,
         dataset_config=dataset_config,
@@ -102,10 +102,17 @@ def get_model(args, dataset_config):
     return model
 
 def get_num_params(model):
+    # return num of trainable parameters
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     num_params = int(sum([np.prod(p.size()) for p in model_parameters]))
 
     return num_params
+
+def get_num_params_total(model):
+    # return num of total parameters
+    model_parameters = model.parameters()
+    model_total_params = sum(p.numel() for p in model_parameters)
+    return model_total_params
 
 def get_solver(args, dataloader):
     model = get_model(args, DC)
@@ -147,7 +154,8 @@ def get_solver(args, dataloader):
         bn_decay_rate=BN_DECAY_RATE
     )
     num_params = get_num_params(model)
-
+    print(f"num_params_trainable is {num_params}")
+    print(f"num_params_total is {get_num_params_total(model)}")
     return solver, num_params, root
 
 def save_info(args, root, num_params, train_dataset, val_dataset):
@@ -244,7 +252,7 @@ if __name__ == "__main__":
     #################################### [start] scanrefer arguments #######################################
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=8)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=6)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
@@ -254,14 +262,15 @@ if __name__ == "__main__":
     parser.add_argument("--num_proposals", type=int, default=256, help="Proposal number [default: 256]")
     parser.add_argument("--num_scenes", type=int, default=-1, help="Number of scenes [default: -1]")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
-    parser.add_argument("--no_height", default=True, action="store_true", help="Do NOT use height signal in input.")
+    parser.add_argument("--no_height", default=False, action="store_true", help="Do NOT use height signal in input.")
     parser.add_argument("--no_augment", action="store_true", help="Do NOT use height signal in input.")
     parser.add_argument("--no_lang_cls", action="store_true", help="Do NOT use language classifier.")
     parser.add_argument("--no_detection", action="store_true", help="Do NOT train the detection module.")
     parser.add_argument("--no_reference", action="store_true", help="Do NOT train the localization module.")
-    parser.add_argument("--use_color", default=True, action="store_true", help="Use RGB color in input.")
-    parser.add_argument("--use_normal", action="store_true", help="Use RGB color in input.")
-    parser.add_argument("--use_multiview", action="store_true", help="Use multiview images.")
+    parser.add_argument("--use_color", default=False, action="store_true", help="Use RGB color in input.")
+    parser.add_argument("--use_normal", default=True, action="store_true", help="Use RGB color in input.")
+    parser.add_argument("--use_height", default=True, action="store_true", help="Use RGB color in input.")
+    parser.add_argument("--use_multiview", default=True, action="store_true", help="Use multiview images.")
     parser.add_argument("--use_bidir", action="store_true", help="Use bi-directional GRU.")
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")

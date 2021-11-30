@@ -34,7 +34,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config):
         split=split, 
         num_points=args.num_points, 
         use_color=args.use_color, 
-        use_height=(not args.no_height),
+        use_height=args.use_height,
         use_normal=args.use_normal, 
         use_multiview=args.use_multiview
     )
@@ -46,7 +46,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config):
 
 def get_model(args, config):
     # load model
-    input_channels = int(args.use_multiview) * 128 + int(args.use_normal) * 3 + int(args.use_color) * 3 + int(not args.no_height)
+    input_channels = int(args.use_multiview) * 128 + int(args.use_normal) * 3 + int(args.use_color) * 3 + int(args.use_height)
     model = RefNet(
         num_class=config.num_class,
         num_heading_bin=config.num_heading_bin,

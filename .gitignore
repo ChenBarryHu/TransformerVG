@@ -13,6 +13,9 @@ data/frames_square/
 _3detr/datasets/scannet/
 3detr/datasets/scannet/
 
+# weights
+weights/
+
 # cache
 data/scannet/__pycache__
 lib/__pycache__
