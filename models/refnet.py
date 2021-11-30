@@ -38,8 +38,10 @@ class RefNet(nn.Module):
             print("Using untrained RefNet")
 
         # freeze the weights of detector so we can focus on other modules
-        for param in self.detr.parameters():
-            param.requires_grad = False
+        freeze = False
+        if freeze:
+            for param in self.detr.parameters():
+                param.requires_grad = False
         
 
 

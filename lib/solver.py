@@ -362,14 +362,14 @@ class Solver():
             batch_data_label["gt_box_corners"] = data_dict["gt_box_corners"]
             batch_data_label["gt_box_centers"] = data_dict["center_label"]
             batch_data_label["gt_box_centers_normalized"] = data_dict["gt_box_centers_normalized"]
-            batch_data_label["gt_angle_residual_label"] = data_dict["heading_residual_label"]
+            batch_data_label["gt_angle_residual_label"] = torch.zeros((data_dict["center_label"].shape[0], data_dict["center_label"].shape[1]))  #data_dict["heading_residual_label"]
             batch_data_label["gt_box_sem_cls_label"] = data_dict["sem_cls_label"]
             batch_data_label["gt_box_present"] = data_dict["box_label_mask"]
             batch_data_label["scan_idx"] = data_dict["scan_idx"]
             batch_data_label["pcl_color"] = data_dict["pcl_color"]
             batch_data_label["gt_box_sizes"] = data_dict["gt_box_sizes"]
             batch_data_label["gt_box_sizes_normalized"] = data_dict["gt_box_sizes_normalized"]
-            batch_data_label["gt_box_angles"] = data_dict["gt_box_angles"]
+            batch_data_label["gt_box_angles"] = torch.zeros(data_dict["gt_box_corners"].shape[1]) #data_dict["gt_box_angles"] #CHANGED: Angles are always 0 for ScanNet
             batch_data_label["point_cloud_dims_min"] = data_dict["point_cloud_dims_min"]
             batch_data_label["point_cloud_dims_max"] = data_dict["point_cloud_dims_max"]
 
@@ -416,8 +416,6 @@ class Solver():
                 # dump log
                 self._dump_log("train")
                 self._global_iter_id += 1
-    
-        
 
         # check best
         if phase == "val":

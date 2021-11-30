@@ -162,8 +162,8 @@ class SetCriterion(nn.Module):
         angle_residual = outputs["angle_residual_normalized"]
 
         if targets["num_boxes_replica"] > 0:
-            gt_angle_label = targets["heading_class_label"]
-            gt_angle_residual = targets["heading_residual_label"]
+            gt_angle_label = torch.zeros((angle_logits.shape[0], 128), dtype=torch.long).cuda()  #targets["heading_class_label"] --> 128 = MAX_NUM_OBJ
+            gt_angle_residual = torch.zeros((angle_logits.shape[0], 128), dtype=torch.long).cuda()  #targets["heading_residual_label"] --> 128 = MAX_NUM_OBJ
             gt_angle_residual_normalized = gt_angle_residual / (
                 np.pi / self.dataset_config.num_angle_bin
             )
@@ -321,7 +321,7 @@ class SetCriterion(nn.Module):
             outputs["box_corners"],
             targets["gt_box_corners"],
             targets["nactual_gt"],
-            rotated_boxes=torch.any(targets["gt_box_angles"] > 0).item(),
+            rotated_boxes=False, #torch.any(targets["gt_box_angles"] > 0).item(),   #CHANGED: This is always 0 for ScanRefer
             needs_grad=(self.loss_weight_dict["loss_giou_weight"] > 0),
         )
 

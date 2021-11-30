@@ -353,8 +353,8 @@ class ScannetReferenceDataset(Dataset):
         data_dict["gt_box_sizes"] = raw_sizes.astype(np.float32)
         data_dict["gt_box_sizes_normalized"] = box_sizes_normalized.astype(
             np.float32)
-        data_dict["gt_box_angles"] = raw_angles.astype(
-            np.float32)  # this is basically 0
+        #data_dict["gt_box_angles"] = raw_angles.astype(
+            #np.float32)  # this is basically 0 --> This is not needed
         data_dict["point_cloud_dims_min"] = point_cloud_dims_min.astype(
             np.float32)
         data_dict["point_cloud_dims_max"] = point_cloud_dims_max.astype(
@@ -370,9 +370,9 @@ class ScannetReferenceDataset(Dataset):
         data_dict["center_label"] = target_bboxes.astype(
             np.float32)[:, 0:3]  # (MAX_NUM_OBJ, 3) for GT box center XYZ
         # (MAX_NUM_OBJ,) with int values in 0,...,NUM_HEADING_BIN-1
-        data_dict["heading_class_label"] = angle_classes.astype(np.int64)
-        data_dict["heading_residual_label"] = angle_residuals.astype(
-            np.float32)  # (MAX_NUM_OBJ,)
+        #data_dict["heading_class_label"] = angle_classes.astype(np.int64)  --> AlWAYS 0 and not needed
+        #data_dict["heading_residual_label"] = angle_residuals.astype(
+            #np.float32)  # (MAX_NUM_OBJ,)
         # (MAX_NUM_OBJ,) with int values in 0,...,NUM_SIZE_CLUSTER
         data_dict["size_class_label"] = size_classes.astype(np.int64)
         data_dict["size_residual_label"] = size_residuals.astype(
