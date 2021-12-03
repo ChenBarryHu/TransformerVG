@@ -161,11 +161,11 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
     # data_dict['pred_size_residual'] = pred_size_residual
 
     gt_ref = torch.argmax(data_dict["ref_box_label"], 1)
-    gt_center = data_dict['center_label'] # (B,MAX_NUM_OBJ,3)
-    gt_heading_class = torch.zeros((gt_center.shape[0], gt_center.shape[1])).cuda()  #data_dict['heading_class_label'] # B,K2 --> ALWAYS 0 FOR SCANNET
-    gt_heading_residual = torch.zeros((gt_center.shape[0], gt_center.shape[1])).cuda()  #'data_dict['heading_residual_label'] # B,K2 --> ALWAYS 0 FOR SCANNET
-    gt_size_class = data_dict['size_class_label'] # B,K2
-    gt_size_residual = data_dict['size_residual_label'] # B,K2,3
+    #gt_center = data_dict['center_label'] # (B,MAX_NUM_OBJ,3)
+    #gt_heading_class = torch.zeros((gt_center.shape[0], gt_center.shape[1])).cuda()  #data_dict['heading_class_label'] # B,K2 --> ALWAYS 0 FOR SCANNET
+    #gt_heading_residual = torch.zeros((gt_center.shape[0], gt_center.shape[1])).cuda()  #'data_dict['heading_residual_label'] # B,K2 --> ALWAYS 0 FOR SCANNET
+    #gt_size_class = data_dict['size_class_label'] # B,K2
+    #gt_size_residual = data_dict['size_residual_label'] # B,K2,3
     box_corners_3detr = data_dict['box_corners'].detach().cpu().numpy()
     ious = []
     multiple = []
@@ -182,13 +182,13 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
         #     pred_size_class[i, pred_ref_idx].detach().cpu().numpy(), 
         #     pred_size_residual[i, pred_ref_idx].detach().cpu().numpy()
         # )
-        gt_obb = config.param2obb(
-            gt_center[i, gt_ref_idx, 0:3].detach().cpu().numpy(), 
-            gt_heading_class[i, gt_ref_idx].detach().cpu().numpy(), 
-            gt_heading_residual[i, gt_ref_idx].detach().cpu().numpy(),
-            gt_size_class[i, gt_ref_idx].detach().cpu().numpy(), 
-            gt_size_residual[i, gt_ref_idx].detach().cpu().numpy()
-        )
+        #gt_obb = config.param2obb( #--> This isn't needed, since we use the GT_corners from 3detr.
+            #gt_center[i, gt_ref_idx, 0:3].detach().cpu().numpy(),
+            #gt_heading_class[i, gt_ref_idx].detach().cpu().numpy(),
+            #gt_heading_residual[i, gt_ref_idx].detach().cpu().numpy(),
+            #gt_size_class[i, gt_ref_idx].detach().cpu().numpy(),
+            #gt_size_residual[i, gt_ref_idx].detach().cpu().numpy()
+        #)
         # pred_bbox = get_3d_box(pred_obb[3:6], pred_obb[6], pred_obb[0:3])
         # gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
         pred_bbox = box_corners_3detr[i][pred_ref_idx]
