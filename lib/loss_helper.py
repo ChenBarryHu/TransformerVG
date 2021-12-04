@@ -343,8 +343,8 @@ def get_loss(data_dict, args, config, detection=True, reference=True, use_lang_c
         # data_dict["cluster_labels"] = cluster_labels
         
         
-        # data_dict["cluster_labels"] = objectness_label.new_zeros(objectness_label.shape).cuda()
-        # data_dict["cluster_ref"] = objectness_label.new_zeros(objectness_label.shape).float().cuda()
+        data_dict["cluster_labels"] = objectness_label.new_zeros(objectness_label.shape).cuda() #This is needed in eval.
+        data_dict["cluster_ref"] = objectness_label.new_zeros(objectness_label.shape).float().cuda()  #This is needed in eval.
 
         # store
         data_dict["ref_loss"] = torch.zeros(1)[0].cuda()
