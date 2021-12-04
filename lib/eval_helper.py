@@ -234,6 +234,6 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
     sem_cls_label = torch.gather(data_dict['sem_cls_label'], 1, data_dict['object_assignment']) # select (B,K) from (B,K2)
     sem_cls_pred = data_dict['sem_cls_prob'].argmax(-1) # (B,K)
     sem_match = (sem_cls_label == sem_cls_pred).float()
-    data_dict["sem_acc"] = (sem_match * data_dict["pred_mask"]).sum() / data_dict["pred_mask"].sum()
+    data_dict["sem_acc"] = (sem_match * data_dict["pred_mask"]).sum() / (data_dict["pred_mask"].sum() + 1e-10) #Avoid division by 0
 
     return data_dict

@@ -105,7 +105,8 @@ def eval_det_cls(pred, gt, ovthresh=0.25, use_07_metric=False, get_iou_func=get_
     for img_id in pred.keys():
         for box,score in pred[img_id]:
             image_ids.append(img_id)
-            confidence.append(score)
+            # TODO-Linux: Remove detach and cpu on Linux.
+            confidence.append(score.detach().cpu()) # This has to be detached and put on the cpu, since we do not use multiprocessing.
             BB.append(box)
     confidence = np.array(confidence)
     BB = np.array(BB) # (nd,4 or 8,3 or 6)
@@ -238,9 +239,15 @@ def eval_det_multiprocessing(pred_all, gt_all, ovthresh=0.25, use_07_metric=Fals
     rec = {}
     prec = {}
     ap = {}
-    p = Pool(processes=10)
-    ret_values = p.map(eval_det_cls_wrapper, [(pred[classname], gt[classname], ovthresh, use_07_metric, get_iou_func) for classname in gt.keys() if classname in pred])
-    p.close()
+    #TODO-Linux: Multiprocessing does not work on windows. It should, however, work on Linux.
+    #p = Pool(processes=10)
+    #ret_values = p.map(eval_det_cls_wrapper, [(pred[classname], gt[classname], ovthresh, use_07_metric, get_iou_func) for classname in gt.keys() if classname in pred])
+    #p.close()
+    ret_values = []
+    for classname in gt.keys():
+        if classname in pred:
+            ret_values.append(eval_det_cls_wrapper((pred[classname], gt[classname], ovthresh, use_07_metric, get_iou_func)))
+
     for i, classname in enumerate(gt.keys()):
         if classname in pred:
             rec[classname], prec[classname], ap[classname] = ret_values[i]

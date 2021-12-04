@@ -40,7 +40,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config):
     )
     print("evaluate on {} samples".format(len(dataset)))
 
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
 
     return dataset, dataloader
 
@@ -152,7 +152,8 @@ def eval_ref(args):
                 # feed
                 data = model(data)
                 _, data = get_loss(
-                    data_dict=data, 
+                    data_dict=data,
+                    args=args,
                     config=DC, 
                     detection=True,
                     reference=True, 
@@ -398,7 +399,8 @@ def eval_det(args):
         with torch.no_grad():
             data = model(data)
             _, data = get_loss(
-                data_dict=data, 
+                data_dict=data,
+                args=args,
                 config=DC, 
                 detection=True,
                 reference=False
@@ -430,7 +432,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", type=str, help="Folder containing the model")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=8)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=5)
     parser.add_argument("--num_points", type=int, default=40000, help="Point Number [default: 40000]")
     parser.add_argument("--num_proposals", type=int, default=256, help="Proposal number [default: 256]")
     parser.add_argument("--num_scenes", type=int, default=-1, help="Number of scenes [default: -1]")
@@ -440,9 +442,10 @@ if __name__ == "__main__":
     parser.add_argument("--no_height", default=False, action="store_true", help="Do NOT use height signal in input.")
     parser.add_argument("--no_lang_cls", action="store_true", help="Do NOT use language classifier.")
     parser.add_argument("--no_nms", action="store_true", help="do NOT use non-maximum suppression for post-processing.")
-    parser.add_argument("--use_color", action="store_true", help="Use RGB color in input.")
-    parser.add_argument("--use_normal", action="store_true", help="Use RGB color in input.")
-    parser.add_argument("--use_multiview", action="store_true", help="Use multiview images.")
+    parser.add_argument("--use_color", default=False, action="store_true", help="Use RGB color in input.")
+    parser.add_argument("--use_normal", default=True, action="store_true", help="Use RGB color in input.")
+    parser.add_argument("--use_height", default=True, action="store_true", help="Use RGB color in input.")
+    parser.add_argument("--use_multiview", default=True, action="store_true", help="Use multiview images.")
     parser.add_argument("--use_bidir", action="store_true", help="Use bi-directional GRU.")
     parser.add_argument("--use_train", action="store_true", help="Use train split in evaluation.")
     parser.add_argument("--use_oracle", action="store_true", help="Use ground truth bounding boxes.")
