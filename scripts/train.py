@@ -252,10 +252,10 @@ if __name__ == "__main__":
     #################################### [start] scanrefer arguments #######################################
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=6)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=8)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
-    parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
+    parser.add_argument("--val_step", type=int, help="iterations of validating", default=20)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3) # 1e-3 is a better lr in the experiment so far
     parser.add_argument("--wd", type=float, help="weight decay", default=1e-5)
     parser.add_argument("--num_points", type=int, default=40000, help="Point Number [default: 40000]")
@@ -309,7 +309,7 @@ if __name__ == "__main__":
     parser.add_argument("--enc_activation", default="relu", type=str)
 
     ### Decoder
-    parser.add_argument("--dec_nlayers", default=8, type=int)
+    parser.add_argument("--dec_nlayers", default=6, type=int)
     parser.add_argument("--dec_dim", default=256, type=int)
     parser.add_argument("--dec_ffn_dim", default=256, type=int)
     parser.add_argument("--dec_dropout", default=0.1, type=float)
