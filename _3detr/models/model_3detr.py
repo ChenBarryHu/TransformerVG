@@ -5,15 +5,15 @@ from _3detr.models.transformer import (MaskedTransformerEncoder, TransformerDeco
 from _3detr.models.position_embedding import PositionEmbeddingCoordsSine
 from _3detr.models.helpers import GenericMLP
 from _3detr.utils.pc_util import scale_points, shift_scale_points
-from _3detr.lib.pointnet2.pointnet2_utils import furthest_point_sample
-from _3detr.lib.pointnet2.pointnet2_modules import PointnetSAModuleVotes
+from lib.pointnet2.pointnet2_utils import furthest_point_sample
+from lib.pointnet2.pointnet2_modules import PointnetSAModuleVotes
 import torch.nn as nn
 import torch
 import numpy as np
 from functools import partial
 import math
 import sys
-sys.path.insert(1, "/home/shichenhu/3dvg-transformer/lib")
+sys.path.insert(1, "E:/Daten/Dokumente/GitHub/3dvg-transformer/lib")
 
 
 class BoxProcessor(object):
