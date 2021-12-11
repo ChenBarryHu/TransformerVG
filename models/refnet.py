@@ -64,6 +64,9 @@ class RefNet(nn.Module):
             dropout=args.mlp_dropout,
             input_dim=args.dec_dim,
         )
+
+
+
         self.feature_head = mlp_func_feature(output_dim=128)
 
 
@@ -77,6 +80,7 @@ class RefNet(nn.Module):
         # Vote aggregation and object proposal
         # self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
+        self.sequential = nn.ModuleList([self.feature_head])
         if not no_reference:
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
@@ -89,6 +93,7 @@ class RefNet(nn.Module):
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
             self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
+            self.sequential = nn.ModuleList([self.feature_head, self.lang, self.match])
 
     def forward(self, data_dict):
         """ Forward pass of the network
@@ -119,7 +124,8 @@ class RefNet(nn.Module):
         self.detr(data_dict)
         box_features = data_dict["box_features"]
 
-        scanrefer_features = self.feature_head(box_features).transpose(1, 2)
+        #scanrefer_features = self.feature_head(box_features).transpose(1, 2)
+        scanrefer_features = self.sequential[0](box_features).transpose(1, 2)
         data_dict['scanrefer_features'] = scanrefer_features
 
         
@@ -131,7 +137,8 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- LANGUAGE ENCODING ---------
-            data_dict = self.lang(data_dict)
+            #data_dict = self.lang(data_dict)
+            data_dict = self.sequential[1](data_dict)
 
             #######################################
             #                                     #
@@ -140,6 +147,7 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- PROPOSAL MATCHING ---------
-            data_dict = self.match(data_dict)
+            #data_dict = self.match(data_dict)
+            data_dict = self.sequential[2](data_dict)
 
         return data_dict

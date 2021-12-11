@@ -87,7 +87,13 @@ class Solver():
         self.args=args
         self.config = config
         self.dataloader = dataloader
-        self.optimizer = optimizer
+        # If we use two separate optimizers, take both optimizers form the list.
+        if args.use_two_optim:
+            self.use_two_optim = True
+            self.optimizer_3detr = optimizer[0]
+            self.optimizer = optimizer[1]
+        else:
+            self.optimizer = optimizer[0]
         self.stamp = stamp
         self.val_step = val_step
 
@@ -148,11 +154,12 @@ class Solver():
         self.__best_report_template = BEST_REPORT_TEMPLATE
 
         # lr scheduler
+        # TODO: Decide if this is also good for the 3detr optimizer
         if lr_decay_step and lr_decay_rate:
             if isinstance(lr_decay_step, list):
-                self.lr_scheduler = MultiStepLR(optimizer, lr_decay_step, lr_decay_rate)
+                self.lr_scheduler = MultiStepLR(self.optimizer, lr_decay_step, lr_decay_rate)
             else:
-                self.lr_scheduler = StepLR(optimizer, lr_decay_step, lr_decay_rate)
+                self.lr_scheduler = StepLR(self.optimizer, lr_decay_step, lr_decay_rate)
         else:
             self.lr_scheduler = None
 
@@ -260,9 +267,17 @@ class Solver():
 
     def _backward(self):
         # optimize
-        self.optimizer.zero_grad()
-        self._running_log["loss"].backward()
-        self.optimizer.step()
+        # Differentiate between case 2 optimizers and 1 optimizer
+        if self.use_two_optim:
+            self.optimizer.zero_grad()
+            self.optimizer_3detr.zero_grad()
+            self._running_log["loss"].backward()
+            self.optimizer.step()
+            self.optimizer_3detr.step()
+        else:
+            self.optimizer.zero_grad()
+            self._running_log["loss"].backward()
+            self.optimizer.step()
 
     def _compute_loss(self, data_dict):
         _, data_dict = get_loss(
@@ -462,11 +477,19 @@ class Solver():
 
         # save check point
         self._log("saving checkpoint...\n")
-        save_dict = {
-            "epoch": epoch_id,
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict()
-        }
+        if self.use_two_optim:
+            save_dict = {
+                "epoch": epoch_id,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_3detr_state_dict": self.optimizer_3detr.state_dict(),
+                "optimizer_reference_state_dict": self.optimizer.state_dict()
+            }
+        else:
+            save_dict = {
+                "epoch": epoch_id,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict()
+            }
         checkpoint_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
         torch.save(save_dict, os.path.join(checkpoint_root, "checkpoint.tar"))
 
