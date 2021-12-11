@@ -20,6 +20,7 @@ from lib.eval_helper import get_eval
 from utils.eta import decode_eta
 from lib.pointnet2.pytorch_utils import BNMomentumScheduler
 from _3detr.utils.ap_calculator import APCalculator
+from _3detr.engine import adjust_learning_rate, compute_learning_rate
 
 
 ITER_REPORT_TEMPLATE = """
@@ -84,7 +85,7 @@ class Solver():
         self.verbose = 0                  # set in __call__
         
         self.model = model
-        self.args=args
+        self.args = args
         self.config = config
         self.dataloader = dataloader
         # If we use two separate optimizers, take both optimizers form the list.
@@ -154,7 +155,6 @@ class Solver():
         self.__best_report_template = BEST_REPORT_TEMPLATE
 
         # lr scheduler
-        # TODO: Decide if this is also good for the 3detr optimizer
         if lr_decay_step and lr_decay_rate:
             if isinstance(lr_decay_step, list):
                 self.lr_scheduler = MultiStepLR(self.optimizer, lr_decay_step, lr_decay_rate)
@@ -185,7 +185,12 @@ class Solver():
             try:
                 self._log("epoch {} starting...".format(epoch_id + 1))
 
-                # feed for training 
+                # feed for training
+                # Update learning rate for 3detr optimizer
+                if self.use_two_optim:
+                    curr_lr = adjust_learning_rate(args=self.args,
+                                                   optimizer=self.optimizer_3detr,
+                                                   curr_epoch=epoch_id*len(self.dataloader["train"])/self._total_iter["train"])
                 self._feed(self.dataloader["train"], "train", epoch_id)
 
                 # evaluation
