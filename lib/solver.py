@@ -277,6 +277,10 @@ class Solver():
             self.optimizer.zero_grad()
             self.optimizer_3detr.zero_grad()
             self._running_log["loss"].backward()
+            # Clip the gradients according to 3detr:
+            # TODO: Decide whether this is done only for 3detr or for reference as well. Currently: Both.
+            if self.args.clip_gradient > 0:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.args.clip_gradient)
             self.optimizer.step()
             self.optimizer_3detr.step()
         else:
