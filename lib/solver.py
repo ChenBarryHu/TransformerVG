@@ -20,6 +20,7 @@ from lib.eval_helper import get_eval
 from utils.eta import decode_eta
 from lib.pointnet2.pytorch_utils import BNMomentumScheduler
 from _3detr.utils.ap_calculator import APCalculator
+from _3detr.engine import adjust_learning_rate, compute_learning_rate
 
 
 ITER_REPORT_TEMPLATE = """
@@ -84,10 +85,17 @@ class Solver():
         self.verbose = 0                  # set in __call__
         
         self.model = model
-        self.args=args
+        self.args = args
         self.config = config
         self.dataloader = dataloader
-        self.optimizer = optimizer
+        # If we use two separate optimizers, take both optimizers form the list.
+        if args.use_two_optim:
+            self.use_two_optim = True
+            self.optimizer_3detr = optimizer[0]
+            self.optimizer = optimizer[1]
+        else:
+            self.use_two_optim = False
+            self.optimizer = optimizer[0]
         self.stamp = stamp
         self.val_step = val_step
 
@@ -150,9 +158,9 @@ class Solver():
         # lr scheduler
         if lr_decay_step and lr_decay_rate:
             if isinstance(lr_decay_step, list):
-                self.lr_scheduler = MultiStepLR(optimizer, lr_decay_step, lr_decay_rate)
+                self.lr_scheduler = MultiStepLR(self.optimizer, lr_decay_step, lr_decay_rate)
             else:
-                self.lr_scheduler = StepLR(optimizer, lr_decay_step, lr_decay_rate)
+                self.lr_scheduler = StepLR(self.optimizer, lr_decay_step, lr_decay_rate)
         else:
             self.lr_scheduler = None
 
@@ -178,7 +186,12 @@ class Solver():
             try:
                 self._log("epoch {} starting...".format(epoch_id + 1))
 
-                # feed for training 
+                # feed for training
+                # Update learning rate for 3detr optimizer
+                if self.use_two_optim:
+                    curr_lr = adjust_learning_rate(args=self.args,
+                                                   optimizer=self.optimizer_3detr,
+                                                   curr_epoch=epoch_id*len(self.dataloader["train"])/self._total_iter["train"])
                 self._feed(self.dataloader["train"], "train", epoch_id)
 
                 # evaluation
@@ -260,9 +273,21 @@ class Solver():
 
     def _backward(self):
         # optimize
-        self.optimizer.zero_grad()
-        self._running_log["loss"].backward()
-        self.optimizer.step()
+        # Differentiate between case 2 optimizers and 1 optimizer
+        if self.use_two_optim:
+            self.optimizer.zero_grad()
+            self.optimizer_3detr.zero_grad()
+            self._running_log["loss"].backward()
+            # Clip the gradients according to 3detr:
+            # TODO: Decide whether this is done only for 3detr or for reference as well. Currently: Both.
+            if self.args.clip_gradient > 0:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.args.clip_gradient)
+            self.optimizer.step()
+            self.optimizer_3detr.step()
+        else:
+            self.optimizer.zero_grad()
+            self._running_log["loss"].backward()
+            self.optimizer.step()
 
     def _compute_loss(self, data_dict):
         _, data_dict = get_loss(
@@ -462,11 +487,19 @@ class Solver():
 
         # save check point
         self._log("saving checkpoint...\n")
-        save_dict = {
-            "epoch": epoch_id,
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict()
-        }
+        if self.use_two_optim:
+            save_dict = {
+                "epoch": epoch_id,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_3detr_state_dict": self.optimizer_3detr.state_dict(),
+                "optimizer_reference_state_dict": self.optimizer.state_dict()
+            }
+        else:
+            save_dict = {
+                "epoch": epoch_id,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict()
+            }
         checkpoint_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
         torch.save(save_dict, os.path.join(checkpoint_root, "checkpoint.tar"))
 

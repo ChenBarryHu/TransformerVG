@@ -19,6 +19,7 @@ from lib.dataset import ScannetReferenceDataset
 from lib.solver import Solver
 from lib.config import CONF
 from models.refnet import RefNet
+from _3detr.optimizer import *
 
 # FIXME: load the json files for train and val set
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
@@ -39,7 +40,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_multiview=args.use_multiview
     )
     # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
 
     return dataset, dataloader
 
@@ -116,7 +117,18 @@ def get_num_params_total(model):
 
 def get_solver(args, dataloader):
     model = get_model(args, DC)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
+    # Use 2 optimizers: one for 3detr and one for the reference part
+    print(model)
+    optimizers = []
+    #Use two separate optimizers for 3detr and reference part.
+    if args.use_two_optim:
+        optimizer_3detr = build_optimizer(args, model.detr)
+        optimizers.append(optimizer_3detr)
+        optimizer_reference = optim.Adam(model.sequential.parameters(), lr=args.lr, weight_decay=args.wd)
+        optimizers.append(optimizer_reference)
+    else:
+        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
+        optimizers.append(optimizer)
 
     if args.use_checkpoint:
         print("loading checkpoint {}...".format(args.use_checkpoint))
@@ -124,7 +136,11 @@ def get_solver(args, dataloader):
         root = os.path.join(CONF.PATH.OUTPUT, stamp)
         checkpoint = torch.load(os.path.join(CONF.PATH.OUTPUT, args.use_checkpoint, "checkpoint.tar"))
         model.load_state_dict(checkpoint["model_state_dict"])
-        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if args.use_two_optim:
+            optimizers[0].load_state_dict(checkpoint["optimizer_3detr_state_dict"])
+            optimizers[1].load_state_dict(checkpoint["optimizer_reference_state_dict"])
+        else:
+            optimizers[0].load_state_dict(checkpoint["optimizer_state_dict"])
     else:
         stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         if args.tag: stamp += "_"+args.tag.upper()
@@ -142,7 +158,7 @@ def get_solver(args, dataloader):
         args=args,
         config=DC, 
         dataloader=dataloader, 
-        optimizer=optimizer, 
+        optimizer=optimizers,
         stamp=stamp, 
         val_step=args.val_step,
         detection=not args.no_detection,
@@ -252,7 +268,7 @@ if __name__ == "__main__":
     #################################### [start] scanrefer arguments #######################################
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=6)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=5)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
@@ -274,6 +290,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_bidir", action="store_true", help="Use bi-directional GRU.")
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")
+    parser.add_argument("--use_two_optim", action="store_true", help="Use 2 separate optimizers for detection and reference part.")
 
     #################################### [start] 3detr arguments #######################################
     parser.add_argument("--base_lr", default=5e-4, type=float)
@@ -361,7 +378,7 @@ if __name__ == "__main__":
         help="Root directory containing the dataset files. \
               If None, default values from scannet.py/sunrgbd.py are used",
     )
-    parser.add_argument("--dataset_num_workers", default=4, type=int)
+    parser.add_argument("--dataset_num_workers", default=0, type=int)
     # parser.add_argument("--batchsize_per_gpu", default=8, type=int) comment out since we can use "batchsize" arg field from scanrefer above
 
     ##### Training #####
