@@ -94,6 +94,7 @@ class Solver():
             self.optimizer_3detr = optimizer[0]
             self.optimizer = optimizer[1]
         else:
+            self.use_two_optim = False
             self.optimizer = optimizer[0]
         self.stamp = stamp
         self.val_step = val_step
