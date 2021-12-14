@@ -7,6 +7,7 @@ CONF = EasyDict()
 # FIXME: set the correct path in this file
 CONF.PATH = EasyDict()
 CONF.PATH.BASE = "/home/barry/dev/ScanRefer/" # TODO: change this
+
 CONF.PATH.DATA = os.path.join(CONF.PATH.BASE, "data")
 CONF.PATH.SCANNET = os.path.join(CONF.PATH.DATA, "scannet")
 CONF.PATH.LIB = os.path.join(CONF.PATH.BASE, "lib")
@@ -28,6 +29,7 @@ CONF.SCANNET_DIR =  "/home/barry/dev/ScanRefer/data/scannet/scans" # TODO change
 CONF.SCANNET_FRAMES_ROOT = "/home/barry/dev/ScanRefer/data/frames_square" # TODO change this
 CONF.PROJECTION = "/home/barry/dev/ScanRefer/multiview_projection_scanrefer" # TODO change this
 CONF.ENET_FEATURES_ROOT = "/home/barry/dev/ScanRefer/enet_features" # TODO change this
+
 CONF.ENET_FEATURES_SUBROOT = os.path.join(CONF.ENET_FEATURES_ROOT, "{}") # scene_id
 CONF.ENET_FEATURES_PATH = os.path.join(CONF.ENET_FEATURES_SUBROOT, "{}.npy") # frame_id
 CONF.SCANNET_FRAMES = os.path.join(CONF.SCANNET_FRAMES_ROOT, "{}/{}") # scene_id, mode 

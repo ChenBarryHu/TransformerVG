@@ -21,11 +21,11 @@ from _3detr.utils.dist import (
 def compute_learning_rate(args, curr_epoch_normalized):
     assert curr_epoch_normalized <= 1.0 and curr_epoch_normalized >= 0.0
     if (
-        curr_epoch_normalized <= (args.warm_lr_epochs / args.max_epoch)
+        curr_epoch_normalized <= (args.warm_lr_epochs / args.epoch)
         and args.warm_lr_epochs > 0
     ):
         # Linear Warmup
-        curr_lr = args.warm_lr + curr_epoch_normalized * args.max_epoch * (
+        curr_lr = args.warm_lr + curr_epoch_normalized * args.epoch * (
             (args.base_lr - args.warm_lr) / args.warm_lr_epochs
         )
     else:
