@@ -29,7 +29,7 @@ class RefNet(nn.Module):
 
         # FIXME: set the weight_path to the correct path to 3detr pretrained weights
         # weight_path = "/home/shichenhu/3dvg-transformer/weights/scannet_ep1080_epoch_600/checkpoint_best.pth"
-        weight_path = "/home/shichenhu/3dvg-3detr/outputs/3detr_xyz_normal_height_multiview/checkpoint.pth"
+        weight_path = "/home/barry/dev/3dvg-3detr/outputs/experiment_6/checkpoint_best.pth"
         if os.path.isfile(weight_path):
             print("Loading pretrained 3detr weights")
             weights = torch.load(weight_path)
@@ -38,7 +38,7 @@ class RefNet(nn.Module):
             print("Using untrained RefNet")
 
         # freeze the weights of detector so we can focus on other modules
-        freeze = False
+        freeze = True
         if freeze:
             for param in self.detr.parameters():
                 param.requires_grad = False

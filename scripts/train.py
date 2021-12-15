@@ -314,13 +314,13 @@ if __name__ == "__main__":
     )
     ### Encoder
     parser.add_argument(
-        "--enc_type", default="vanilla", choices=["masked", "maskedv2", "vanilla"]
+        "--enc_type", default="masked", choices=["masked", "maskedv2", "vanilla"]
     )
     # Below options are only valid for vanilla encoder
     parser.add_argument("--enc_nlayers", default=3, type=int)
     parser.add_argument("--enc_dim", default=256, type=int)
     parser.add_argument("--enc_ffn_dim", default=128, type=int)
-    parser.add_argument("--enc_dropout", default=0.1, type=float)
+    parser.add_argument("--enc_dropout", default=0.3, type=float)
     parser.add_argument("--enc_nhead", default=4, type=int)
     parser.add_argument("--enc_pos_embed", default=None, type=str)
     parser.add_argument("--enc_activation", default="relu", type=str)
@@ -357,10 +357,10 @@ if __name__ == "__main__":
     parser.add_argument("--matcher_objectness_cost", default=0, type=float)
 
     ### Loss Weights
-    parser.add_argument("--loss_giou_weight", default=0, type=float)
+    parser.add_argument("--loss_giou_weight", default=1, type=float)
     parser.add_argument("--loss_sem_cls_weight", default=1, type=float)
     parser.add_argument(
-        "--loss_no_object_weight", default=0.2, type=float
+        "--loss_no_object_weight", default=0.25, type=float
     )  # "no object" or "background" class for detection
     parser.add_argument("--loss_angle_cls_weight", default=0.1, type=float)
     parser.add_argument("--loss_angle_reg_weight", default=0.5, type=float)
