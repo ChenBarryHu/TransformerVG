@@ -341,9 +341,14 @@ class ScannetReferenceDataset(Dataset):
         except KeyError:
             pass
 
+        istrain = 0
+        if self.split == "train":
+            istrain = 1
+
         object_cat = self.raw2label[object_name] if object_name in self.raw2label else 17
 
         data_dict = {}
+        data_dict["istrain"] = istrain
         # from 3detr:
         data_dict["gt_box_corners"] = box_corners.astype(np.float32)
         # data_dict["gt_box_centers"] = box_centers.astype(

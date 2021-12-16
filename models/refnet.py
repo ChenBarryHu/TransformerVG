@@ -13,6 +13,7 @@ from models.voting_module import VotingModule
 from models.proposal_module import ProposalModule
 from models.lang_module import LangModule
 from models.match_module import MatchModule
+from models._3dvg_match_module import MatchModule as dvg_matchmodule
 from _3detr.models import build_model
 from _3detr.datasets import build_dataset
 from _3detr.models.helpers import GenericMLP
@@ -92,7 +93,11 @@ class RefNet(nn.Module):
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
-            self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
+            use_3dvg = True
+            if use_3dvg:
+                self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
+            else:
+                self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
             self.sequential = nn.ModuleList([self.feature_head, self.lang, self.match])
 
     def forward(self, data_dict):
