@@ -6,13 +6,13 @@ CONF = EasyDict()
 
 # FIXME: set the correct path in this file
 CONF.PATH = EasyDict()
-CONF.PATH.BASE = "/home/shichenhu/ScanRefer/" # TODO: change this
+CONF.PATH.BASE = "/home/barry/dev/ScanRefer/" # TODO: change this
 CONF.PATH.DATA = os.path.join(CONF.PATH.BASE, "data")
 CONF.PATH.SCANNET = os.path.join(CONF.PATH.DATA, "scannet")
 CONF.PATH.LIB = os.path.join(CONF.PATH.BASE, "lib")
 CONF.PATH.MODELS = os.path.join(CONF.PATH.BASE, "models")
 CONF.PATH.UTILS = os.path.join(CONF.PATH.BASE, "utils")
-CONF.PATH.CODEBASE = "/home/shichenhu/3dvg-transformer/"
+CONF.PATH.CODEBASE = "/home/barry/dev/3dvg-transformer/"
 
 # append to syspath
 for _, path in CONF.PATH.items():
@@ -24,10 +24,10 @@ CONF.PATH.SCANNET_META = os.path.join(CONF.PATH.SCANNET, "meta_data")
 CONF.PATH.SCANNET_DATA = os.path.join(CONF.PATH.SCANNET, "scannet_data")
 
 # data
-CONF.SCANNET_DIR =  "/home/shichenhu/ScanRefer/data/scannet/scans" # TODO change this
-CONF.SCANNET_FRAMES_ROOT = "/home/shichenhu/ScanRefer/data/frames_square" # TODO change this
-CONF.PROJECTION = "/home/shichenhu/ScanRefer/multiview_projection_scanrefer" # TODO change this
-CONF.ENET_FEATURES_ROOT = "/home/shichenhu/ScanRefer/enet_features" # TODO change this
+CONF.SCANNET_DIR =  "/home/barry/dev/ScanRefer/data/scannet/scans" # TODO change this
+CONF.SCANNET_FRAMES_ROOT = "/home/barry/dev/ScanRefer/data/frames_square" # TODO change this
+CONF.PROJECTION = "/home/barry/dev/ScanRefer/multiview_projection_scanrefer" # TODO change this
+CONF.ENET_FEATURES_ROOT = "/home/barry/dev/ScanRefer/enet_features" # TODO change this
 CONF.ENET_FEATURES_SUBROOT = os.path.join(CONF.ENET_FEATURES_ROOT, "{}") # scene_id
 CONF.ENET_FEATURES_PATH = os.path.join(CONF.ENET_FEATURES_SUBROOT, "{}.npy") # frame_id
 CONF.SCANNET_FRAMES = os.path.join(CONF.SCANNET_FRAMES_ROOT, "{}/{}") # scene_id, mode 

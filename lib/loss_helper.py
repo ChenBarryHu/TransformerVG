@@ -361,10 +361,11 @@ def get_loss(data_dict, args, config, detection=True, reference=True, use_lang_c
     #     + 0.1*data_dict["ref_loss"] + 0.1*data_dict["lang_loss"]
 
     # to only train (ref, lang) uncomment the next line
-    loss = 0.1*data_dict["ref_loss"] + 0.1*data_dict["lang_loss"]
+    # loss = 0.1*data_dict["ref_loss"] + 0.1*data_dict["lang_loss"]
+    # loss = 0.1*data_dict["lang_loss"]
     
     # to tune everything (detection, ref, lang) uncomment the next line
-    # loss = data_dict['3detr_loss'] + 0.1*data_dict["ref_loss"] + 0.1*data_dict["lang_loss"]
+    loss = data_dict['3detr_loss'] + 0.1*data_dict["ref_loss"] + 0.1*data_dict["lang_loss"]
     
     loss *= 10 # amplify
     data_dict['loss'] = loss

@@ -63,38 +63,40 @@ def get_model(args, dataset_config):
     # trainable model
     if args.use_pretrained:
         # load model
-        print("loading pretrained VoteNet...")
-        pretrained_model = RefNet(
-            num_class=DC.num_class,
-            num_heading_bin=DC.num_heading_bin,
-            num_size_cluster=DC.num_size_cluster,
-            mean_size_arr=DC.mean_size_arr,
-            num_proposal=args.num_proposals,
-            input_feature_dim=input_channels,
-            use_bidir=args.use_bidir,
-            no_reference=True
-        )
+        print("loading pretrained ScanRefer...")
+        # pretrained_model = RefNet(
+        #     args=args,
+        #     dataset_config=dataset_config,
+        #     num_class=DC.num_class,
+        #     num_heading_bin=DC.num_heading_bin,
+        #     num_size_cluster=DC.num_size_cluster,
+        #     mean_size_arr=DC.mean_size_arr,
+        #     num_proposal=args.num_proposals,
+        #     input_feature_dim=input_channels,
+        #     use_bidir=args.use_bidir,
+        #     no_reference=True
+        # )
 
         pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model_last.pth")
-        pretrained_model.load_state_dict(torch.load(pretrained_path), strict=False)
-
+        model.load_state_dict(torch.load(pretrained_path), strict=False)
+    
         # mount
-        model.backbone_net = pretrained_model.backbone_net
-        model.vgen = pretrained_model.vgen
-        model.proposal = pretrained_model.proposal
+        # model.detr = pretrained_model.detr
+        # model.vgen = pretrained_model.vgen
+        # model.proposal = pretrained_model.proposal
 
-        if args.no_detection:
-            # freeze pointnet++ backbone
-            for param in model.backbone_net.parameters():
-                param.requires_grad = False
+        # if args.no_detection:
+        #     # freeze pointnet++ backbone
+        #     for param in model.backbone_net.parameters():
+        #         param.requires_grad = False
 
-            # freeze voting
-            for param in model.vgen.parameters():
-                param.requires_grad = False
+        #     # freeze voting
+        #     for param in model.vgen.parameters():
+        #         param.requires_grad = False
             
-            # freeze detector
-            for param in model.proposal.parameters():
-                param.requires_grad = False
+        #     # freeze detector
+        #     for param in model.proposal.parameters():
+        #         param.requires_grad = False
     
     # to CUDA
     model = model.cuda()
@@ -252,11 +254,11 @@ if __name__ == "__main__":
     #################################### [start] scanrefer arguments #######################################
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=6)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=14)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
-    parser.add_argument("--lr", type=float, help="learning rate", default=1e-4)
+    parser.add_argument("--lr", type=float, help="learning rate", default=1e-3)
     parser.add_argument("--wd", type=float, help="weight decay", default=1e-5)
     parser.add_argument("--num_points", type=int, default=40000, help="Point Number [default: 40000]")
     parser.add_argument("--num_proposals", type=int, default=256, help="Proposal number [default: 256]")
@@ -297,13 +299,13 @@ if __name__ == "__main__":
     )
     ### Encoder
     parser.add_argument(
-        "--enc_type", default="vanilla", choices=["masked", "maskedv2", "vanilla"]
+        "--enc_type", default="masked", choices=["masked", "maskedv2", "vanilla"]
     )
     # Below options are only valid for vanilla encoder
     parser.add_argument("--enc_nlayers", default=3, type=int)
     parser.add_argument("--enc_dim", default=256, type=int)
     parser.add_argument("--enc_ffn_dim", default=128, type=int)
-    parser.add_argument("--enc_dropout", default=0.1, type=float)
+    parser.add_argument("--enc_dropout", default=0.3, type=float)
     parser.add_argument("--enc_nhead", default=4, type=int)
     parser.add_argument("--enc_pos_embed", default=None, type=str)
     parser.add_argument("--enc_activation", default="relu", type=str)
@@ -340,10 +342,10 @@ if __name__ == "__main__":
     parser.add_argument("--matcher_objectness_cost", default=0, type=float)
 
     ### Loss Weights
-    parser.add_argument("--loss_giou_weight", default=0, type=float)
+    parser.add_argument("--loss_giou_weight", default=1, type=float)
     parser.add_argument("--loss_sem_cls_weight", default=1, type=float)
     parser.add_argument(
-        "--loss_no_object_weight", default=0.2, type=float
+        "--loss_no_object_weight", default=0.25, type=float
     )  # "no object" or "background" class for detection
     parser.add_argument("--loss_angle_cls_weight", default=0.1, type=float)
     parser.add_argument("--loss_angle_reg_weight", default=0.5, type=float)

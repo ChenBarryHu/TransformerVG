@@ -215,6 +215,8 @@ class Model3DETR(nn.Module):
             enc_inds = pre_enc_inds
         else:
             # use gather here to ensure that it works for both FPS and random sampling
+            enc_inds = enc_inds.type(torch.int64)
+            pre_enc_inds = pre_enc_inds.type(torch.int64)
             enc_inds = torch.gather(pre_enc_inds, 1, enc_inds)
         return enc_xyz, enc_features, enc_inds
 
@@ -390,7 +392,7 @@ class Model3DETR(nn.Module):
 
 def build_preencoder(args):
     input_feature_dim = int(args.use_multiview) * 128 + int(args.use_normal) * 3 + int(args.use_color) * 3 + int(args.use_height)
-    mlp_dims = [input_feature_dim, 128, 128, args.enc_dim]
+    mlp_dims = [input_feature_dim, 64, 128, args.enc_dim]
     preencoder = PointnetSAModuleVotes(
         radius=0.2,
         nsample=64,

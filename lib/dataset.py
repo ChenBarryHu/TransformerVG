@@ -103,6 +103,12 @@ class ScannetReferenceDataset(Dataset):
             point_cloud[:, 3:6] = (point_cloud[:, 3:6]-MEAN_COLOR_RGB)/256.0
             pcl_color = point_cloud[:, 3:6]
 
+        if self.use_height:
+            # print("use height")
+            floor_height = np.percentile(point_cloud[:,2],0.99)
+            height = point_cloud[:,2] - floor_height
+            point_cloud = np.concatenate([point_cloud, np.expand_dims(height, 1)],1)
+        
         if self.use_normal:
             # print("use_normal")
             normals = mesh_vertices[:, 6:9]
@@ -119,11 +125,6 @@ class ScannetReferenceDataset(Dataset):
             multiview = self.multiview_data[pid][scene_id]
             point_cloud = np.concatenate([point_cloud, multiview], 1)
 
-        if self.use_height:
-            # print("use height")
-            floor_height = np.percentile(point_cloud[:,2],0.99)
-            height = point_cloud[:,2] - floor_height
-            point_cloud = np.concatenate([point_cloud, np.expand_dims(height, 1)],1)
             # print(f"pointcloud dimension using height: {point_cloud.shape}")
 
         # from scanrefer
