@@ -41,11 +41,13 @@ class ScannetReferenceDataset(Dataset):
     def __init__(self, scanrefer, scanrefer_all_scene,
                  split="train",
                  num_points=40000,
+                 lang_num_max=32,
                  use_height=False,
                  use_color=False,
                  use_normal=False,
                  use_multiview=False,
                  augment=False,
+                 shuffle=False,
                  use_random_cuboid=True,
                  random_cuboid_min_points=30000):
 
@@ -58,6 +60,7 @@ class ScannetReferenceDataset(Dataset):
         self.use_normal = use_normal
         self.use_multiview = use_multiview
         self.augment = augment
+        self.lang_num_max = lang_num_max
 
         # from 3detr:
         self.random_cuboid_augmentor = RandomCuboid(
@@ -103,12 +106,6 @@ class ScannetReferenceDataset(Dataset):
             point_cloud[:, 3:6] = (point_cloud[:, 3:6]-MEAN_COLOR_RGB)/256.0
             pcl_color = point_cloud[:, 3:6]
 
-        if self.use_height:
-            # print("use height")
-            floor_height = np.percentile(point_cloud[:,2],0.99)
-            height = point_cloud[:,2] - floor_height
-            point_cloud = np.concatenate([point_cloud, np.expand_dims(height, 1)],1)
-        
         if self.use_normal:
             # print("use_normal")
             normals = mesh_vertices[:, 6:9]
@@ -125,13 +122,18 @@ class ScannetReferenceDataset(Dataset):
             multiview = self.multiview_data[pid][scene_id]
             point_cloud = np.concatenate([point_cloud, multiview], 1)
 
+        if self.use_height:
+            # print("use height")
+            floor_height = np.percentile(point_cloud[:,2],0.99)
+            height = point_cloud[:,2] - floor_height
+            point_cloud = np.concatenate([point_cloud, np.expand_dims(height, 1)],1)
             # print(f"pointcloud dimension using height: {point_cloud.shape}")
 
-        # from scanrefer
-        # point_cloud, choices = random_sampling(point_cloud, self.num_points, return_choices=True)
-        # instance_labels = instance_labels[choices]
-        # semantic_labels = semantic_labels[choices]
-        # pcl_color = pcl_color[choices]
+        # from scanrefer --> is active in 3dvg-dataset.py
+        #point_cloud, choices = random_sampling(point_cloud, self.num_points, return_choices=True)
+        #instance_labels = instance_labels[choices]
+        #semantic_labels = semantic_labels[choices]
+        #pcl_color = pcl_color[choices]
 
         # ------------------------------- LABELS ------------------------------
         # from 3detr:
@@ -202,12 +204,13 @@ class ScannetReferenceDataset(Dataset):
 
             # ------------------------------- DATA AUGMENTATION ------------------------------
             if self.augment and not self.debug:
-                if np.random.random() > 0.5:
+                # Changed to 0.7 in 3dvg_dataset.py
+                if np.random.random() > 0.7:
                     # Flipping along the YZ plane
                     point_cloud[:, 0] = -1 * point_cloud[:, 0]
                     target_bboxes[:, 0] = -1 * target_bboxes[:, 0]
 
-                if np.random.random() > 0.5:
+                if np.random.random() > 0.7:
                     # Flipping along the XZ plane
                     point_cloud[:, 1] = -1 * point_cloud[:, 1]
                     target_bboxes[:, 1] = -1 * target_bboxes[:, 1]
@@ -238,6 +241,19 @@ class ScannetReferenceDataset(Dataset):
                     point_cloud[:, 0:3], np.transpose(rot_mat))
                 target_bboxes = rotate_aligned_boxes_along_axis(
                     target_bboxes, rot_mat, "z")
+
+                # print('Warning! Dont Use Extra Augmentation!(votenet didnot use it)', flush=True)
+                # NEW: scale from 0.8 to 1.2
+                # print(rot_mat.shape, point_cloud.shape, flush=True)
+                scale = np.random.uniform(-0.1, 0.1, (3, 3))
+                scale = np.exp(scale)
+                # print(scale, '<<< scale', flush=True)
+                scale = scale * np.eye(3)
+                point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], scale)
+                if self.use_height:
+                    point_cloud[:, 3] = point_cloud[:, 3] * float(scale[2, 2])
+                target_bboxes[:, 0:3] = np.dot(target_bboxes[:, 0:3], scale)
+                target_bboxes[:, 3:6] = np.dot(target_bboxes[:, 3:6], scale)
 
                 # Translation
                 point_cloud, target_bboxes = self._translate(
@@ -325,9 +341,14 @@ class ScannetReferenceDataset(Dataset):
         except KeyError:
             pass
 
+        istrain = 0
+        if self.split == "train":
+            istrain = 1
+
         object_cat = self.raw2label[object_name] if object_name in self.raw2label else 17
 
         data_dict = {}
+        data_dict["istrain"] = istrain
         # from 3detr:
         data_dict["gt_box_corners"] = box_corners.astype(np.float32)
         # data_dict["gt_box_centers"] = box_centers.astype(
@@ -335,9 +356,8 @@ class ScannetReferenceDataset(Dataset):
         data_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(
             np.float32
         )
-        # data_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)  # same as heading_class_label from scanrefer
-        # data_dict["gt_angle_residual_label"] = angle_residuals.astype(
-        #     np.float32) # same as heading_residual_label from scanrefer
+        data_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)  # same as heading_class_label from scanrefer
+        data_dict["gt_angle_residual_label"] = angle_residuals.astype(np.float32) # same as heading_residual_label from scanrefer
         # the following lines are the same as lines 283 to 286
         # target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
         # target_bboxes_semcls[0 : instance_bboxes.shape[0]] = [
@@ -355,7 +375,7 @@ class ScannetReferenceDataset(Dataset):
         data_dict["gt_box_sizes_normalized"] = box_sizes_normalized.astype(
             np.float32)
         data_dict["gt_box_angles"] = raw_angles.astype(
-            np.float32)  # this is basically 0
+            np.float32)  # this is basically 0 --> This is not needed
         data_dict["point_cloud_dims_min"] = point_cloud_dims_min.astype(
             np.float32)
         data_dict["point_cloud_dims_max"] = point_cloud_dims_max.astype(
@@ -371,9 +391,8 @@ class ScannetReferenceDataset(Dataset):
         data_dict["center_label"] = target_bboxes.astype(
             np.float32)[:, 0:3]  # (MAX_NUM_OBJ, 3) for GT box center XYZ
         # (MAX_NUM_OBJ,) with int values in 0,...,NUM_HEADING_BIN-1
-        data_dict["heading_class_label"] = angle_classes.astype(np.int64)
-        data_dict["heading_residual_label"] = angle_residuals.astype(
-            np.float32)  # (MAX_NUM_OBJ,)
+        data_dict["heading_class_label"] = angle_classes.astype(np.int64)  #--> AlWAYS 0 and not needed
+        data_dict["heading_residual_label"] = angle_residuals.astype(np.float32)  # (MAX_NUM_OBJ,)
         # (MAX_NUM_OBJ,) with int values in 0,...,NUM_SIZE_CLUSTER
         data_dict["size_class_label"] = size_classes.astype(np.int64)
         data_dict["size_residual_label"] = size_residuals.astype(
@@ -427,6 +446,7 @@ class ScannetReferenceDataset(Dataset):
                 raw2label[raw_name] = scannet2label['others']
             else:
                 raw2label[raw_name] = scannet2label[nyu40_name]
+        raw2label["shower_curtain"] = 13
 
         return raw2label
 
@@ -491,25 +511,39 @@ class ScannetReferenceDataset(Dataset):
             glove = pickle.load(f)
 
         lang = {}
+        lang_main = {}
+        scene_id_pre = ""
+        i = 0
         for data in self.scanrefer:
             scene_id = data["scene_id"]
             object_id = data["object_id"]
             ann_id = data["ann_id"]
+            object_name = data["object_name"]
 
             if scene_id not in lang:
                 lang[scene_id] = {}
+                lang_main[scene_id] = {}
 
             if object_id not in lang[scene_id]:
                 lang[scene_id][object_id] = {}
+                lang_main[scene_id][object_id] = {}
 
             if ann_id not in lang[scene_id][object_id]:
                 lang[scene_id][object_id][ann_id] = {}
+                lang_main[scene_id][object_id][ann_id] = {}
+                lang_main[scene_id][object_id][ann_id]["main"] = {}
+                lang_main[scene_id][object_id][ann_id]["len"] = 0
+                lang_main[scene_id][object_id][ann_id]["first_obj"] = -1
+                lang_main[scene_id][object_id][ann_id]["unk"] = glove["unk"]
 
             # tokenize the description
             tokens = data["token"]
             embeddings = np.zeros((CONF.TRAIN.MAX_DES_LEN, 300))
+            main_embeddings = np.zeros((CONF.TRAIN.MAX_DES_LEN, 300))
+            pd = 1
             # tokens = ["sos"] + tokens + ["eos"]
             # embeddings = np.zeros((CONF.TRAIN.MAX_DES_LEN + 2, 300))
+            main_object_cat = self.raw2label[object_name] if object_name in self.raw2label else 17
             for token_id in range(CONF.TRAIN.MAX_DES_LEN):
                 if token_id < len(tokens):
                     token = tokens[token_id]
@@ -517,16 +551,44 @@ class ScannetReferenceDataset(Dataset):
                         embeddings[token_id] = glove[token]
                     else:
                         embeddings[token_id] = glove["unk"]
+                    if pd == 1:
+                        if token in glove:
+                            main_embeddings[token_id] = glove[token]
+                        else:
+                            main_embeddings[token_id] = glove["unk"]
+                        if token == ".":
+                            pd = 0
+                            lang_main[scene_id][object_id][ann_id]["len"] = token_id + 1
+                    object_cat = self.raw2label[token] if token in self.raw2label else -1
+                    is_two_words = 0
+                    if token_id + 1 < len(tokens):
+                        token_new = token + " " + tokens[token_id+1]
+                        object_cat_new = self.raw2label[token_new] if token_new in self.raw2label else -1
+                        if object_cat_new != -1:
+                            object_cat = object_cat_new
+                            is_two_words = 1
+                    if lang_main[scene_id][object_id][ann_id]["first_obj"] == -1 and object_cat == main_object_cat:
+                        if is_two_words == 1 and token_id + 1 < len(tokens):
+                            lang_main[scene_id][object_id][ann_id]["first_obj"] = token_id + 1
+                        else:
+                            lang_main[scene_id][object_id][ann_id]["first_obj"] = token_id
+            if pd == 1:
+                lang_main[scene_id][object_id][ann_id]["len"] = len(tokens)
 
             # store
             lang[scene_id][object_id][ann_id] = embeddings
+            lang_main[scene_id][object_id][ann_id]["main"] = main_embeddings
+            if scene_id_pre == scene_id:
+                i += 1
+            else:
+                scene_id_pre = scene_id
+                i = 0
 
-        return lang
+        return lang, lang_main
 
     def _load_data(self):
         print("loading data...")
         # load language features
-        self.lang = self._tranform_des()
 
         # add scannet data
         self.scene_list = sorted(
@@ -561,6 +623,8 @@ class ScannetReferenceDataset(Dataset):
         self.raw2nyuid = raw2nyuid
         self.raw2label = self._get_raw2label()
         self.unique_multiple_lookup = self._get_unique_multiple_lookup()
+
+        self.lang, self.lang_main = self._tranform_des()
 
     def _translate(self, point_set, bbox):
         # unpack

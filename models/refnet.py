@@ -12,7 +12,7 @@ from models.backbone_module import Pointnet2Backbone
 from models.voting_module import VotingModule
 from models.proposal_module import ProposalModule
 from models.lang_module import LangModule
-from models.match_module import MatchModule
+from models._3dvg_match_module import MatchModule
 from _3detr.models import build_model
 from _3detr.datasets import build_dataset
 from _3detr.models.helpers import GenericMLP
@@ -81,14 +81,14 @@ class RefNet(nn.Module):
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
             # (including attention and language classification)
-            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size)
+            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
             # freeze the lang module's weights so that the loss focus on ref loss, comment next two lines to train lang module as well
             # for param in self.lang.parameters():
             #     param.requires_grad = False
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
-            self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
+            self.match = MatchModule(num_proposals=num_proposal)
 
     def forward(self, data_dict):
         """ Forward pass of the net
