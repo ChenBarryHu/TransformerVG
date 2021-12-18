@@ -195,7 +195,7 @@ class Solver():
                 self._feed(self.dataloader["train"], "train", epoch_id)
 
                 # evaluation
-                if (epoch_id+1) % self.val_epoch_step == 0 and epoch_id != 0:
+                if (epoch_id+1) % self.val_epoch_step == 0:
                     print("evaluating...")
                     # val
                     self._feed(self.dataloader["val"], "val", epoch_id)

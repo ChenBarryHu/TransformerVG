@@ -39,8 +39,8 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_normal=args.use_normal, 
         use_multiview=args.use_multiview
     )
-    # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    # FIXME: change the num_worker based on the machine type
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     return dataset, dataloader
 
