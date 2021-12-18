@@ -88,8 +88,8 @@ class RefNet(nn.Module):
             # (including attention and language classification)
             self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
             # freeze the lang module's weights so that the loss focus on ref loss, comment next two lines to train lang module as well
-            for param in self.lang.parameters():
-                param.requires_grad = False
+            #for param in self.lang.parameters():
+            #    param.requires_grad = False
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
