@@ -239,11 +239,11 @@ def eval_det_multiprocessing(pred_all, gt_all, ovthresh=0.25, use_07_metric=Fals
     rec = {}
     prec = {}
     ap = {}
-    # FIXME-Linux: Multiprocessing does not work on windows, comment the following three lines if trained on Windows machine. It should, however, work on Linux.
+    # FIXME-WINDOWS: Multiprocessing does not work on windows, comment the following three lines if trained on Windows machine. It should, however, work on Linux.
     p = Pool(processes=10)
     ret_values = p.map(eval_det_cls_wrapper, [(pred[classname], gt[classname], ovthresh, use_07_metric, get_iou_func) for classname in gt.keys() if classname in pred])
     p.close()
-    # FIXME: To train on windows machine, uncomment the following four lines
+    # FIXME-WINDOWS: To train on windows machine, uncomment the following four lines
     # ret_values = []
     # for classname in gt.keys():
     #     if classname in pred:

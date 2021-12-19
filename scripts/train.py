@@ -39,7 +39,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_normal=args.use_normal, 
         use_multiview=args.use_multiview
     )
-    # FIXME: change the num_worker based on the machine type
+    # FIXME-WINDOWS: change the num_worker based on the machine type
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     return dataset, dataloader
@@ -65,26 +65,12 @@ def get_model(args, dataset_config):
     if args.use_pretrained:
         # load model
         print("loading pretrained pipeline...")
-        # pretrained_model = RefNet(
-        #     num_class=DC.num_class,
-        #     num_heading_bin=DC.num_heading_bin,
-        #     num_size_cluster=DC.num_size_cluster,
-        #     mean_size_arr=DC.mean_size_arr,
-        #     num_proposal=args.num_proposals,
-        #     input_feature_dim=input_channels,
-        #     use_bidir=args.use_bidir,
-        #     no_reference=True
-        # )
 
         pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model_last.pth")
         model.load_state_dict(torch.load(pretrained_path), strict=False)
         # FIXME: uncomment to  unfreeze the last layer of encoder
         # for param in model.detr.decoder.layers[7].parameters():
         #     param.requires_grad = True
-        # mount
-        # model.backbone_net = pretrained_model.backbone_net
-        # model.vgen = pretrained_model.vgen
-        # model.proposal = pretrained_model.proposal
 
         if args.no_detection:
             # freeze pointnet++ backbone
