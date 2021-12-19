@@ -64,7 +64,7 @@ def get_model(args, dataset_config):
     # trainable model
     if args.use_pretrained:
         # load model
-        print("loading pretrained VoteNet...")
+        print("loading pretrained pipeline...")
         # pretrained_model = RefNet(
         #     num_class=DC.num_class,
         #     num_heading_bin=DC.num_heading_bin,
@@ -78,7 +78,9 @@ def get_model(args, dataset_config):
 
         pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model_last.pth")
         model.load_state_dict(torch.load(pretrained_path), strict=False)
-
+        # FIXME: uncomment to  unfreeze the last layer of encoder
+        # for param in model.detr.decoder.layers[7].parameters():
+        #     param.requires_grad = True
         # mount
         # model.backbone_net = pretrained_model.backbone_net
         # model.vgen = pretrained_model.vgen
@@ -268,7 +270,7 @@ if __name__ == "__main__":
     #################################### [start] scanrefer arguments #######################################
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=14)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=13)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
