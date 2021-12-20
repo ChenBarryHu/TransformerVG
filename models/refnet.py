@@ -27,7 +27,7 @@ class RefNet(nn.Module):
         super().__init__()
         self.detr, _ = build_model(args, dataset_config)
 
-        # FIXME: set the weight_path to the correct path to 3detr pretrained weights
+        # FIXME-WINDOWS: set the weight_path to the correct path to 3detr-m (masked) pretrained weights
         # weight_path = "/home/shichenhu/3dvg-transformer/weights/scannet_ep1080_epoch_600/checkpoint_best.pth"
         weight_path = "/home/barry/dev/3dvg-3detr/outputs/experiment_6/checkpoint_best.pth"
         if os.path.isfile(weight_path):
@@ -86,9 +86,7 @@ class RefNet(nn.Module):
             # Encode the input descriptions into vectors
             # (including attention and language classification)
             self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size)
-            # freeze the lang module's weights so that the loss focus on ref loss, comment next two lines to train lang module as well
-            for param in self.lang.parameters():
-                param.requires_grad = False
+
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
