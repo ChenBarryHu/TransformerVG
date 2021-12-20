@@ -2,8 +2,65 @@ import os
 import sys
 import torch
 import torch.nn as nn
+import math
 
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+
+class PositionalEmbedding(nn.Module):
+
+    def __init__(self, d_model, dropout= 0.1, max_len = 126):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, 1, d_model)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        """
+        Args:
+            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+        """
+        x = x + self.pe[:x.size(0)]
+        return self.dropout(x)
+
+
+class LangModuleAttention(nn.Module):
+    def __init__(
+        self,
+        embed_dim=300,
+        num_head=4,
+        dropout=0.1,
+        batch_first=True
+    ):
+        super(LangModuleAttention, self).__init__()
+        self.d_model = embed_dim
+        self.pe = PositionalEmbedding(embed_dim)
+        self.num_head = num_head
+        self.self_attention = nn.MultiheadAttention(
+            embed_dim=embed_dim, 
+            num_heads=self.num_head,
+            dropout=dropout,
+            batch_first=True
+        )
+        # self.fc_out = nn.Linear(embedding_size, trg_vocab_size)
+        # self.dropout = nn.Dropout(dropout)
+        # self.src_pad_idx = src_pad_idx
+
+    def forward(self, data_dict):
+        word_embedding = data_dict["lang_feat"]
+        word_embedding = word_embedding.permute(1,0,2)
+        word_embedding_with_pos = self.pe(word_embedding)
+        word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
+        embedding = self.self_attention(word_embedding_with_pos, word_embedding_with_pos, word_embedding_with_pos)
+        return embedding
+
+
+        
 
 class LangModule(nn.Module):
     def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False, 

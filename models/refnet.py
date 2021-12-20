@@ -11,7 +11,7 @@ from functools import partial
 from models.backbone_module import Pointnet2Backbone
 from models.voting_module import VotingModule
 from models.proposal_module import ProposalModule
-from models.lang_module import LangModule
+from models.lang_module import LangModule, LangModuleAttention
 from models.match_module import MatchModule
 from _3detr.models import build_model
 from _3detr.datasets import build_dataset
@@ -86,7 +86,12 @@ class RefNet(nn.Module):
             # Encode the input descriptions into vectors
             # (including attention and language classification)
             self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size)
-
+            self.lang_att = LangModuleAttention(
+                embed_dim=300,
+                num_head=4,
+                dropout=0.1,
+                batch_first=True
+            )
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
@@ -135,7 +140,8 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- LANGUAGE ENCODING ---------
-            #data_dict = self.lang(data_dict)
+            self.lang_att(data_dict)
+            self.lang(data_dict)
             data_dict = self.sequential[1](data_dict)
 
             #######################################
