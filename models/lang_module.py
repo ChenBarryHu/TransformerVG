@@ -3,7 +3,7 @@ import sys
 import torch
 import torch.nn as nn
 import math
-
+import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
@@ -33,6 +33,8 @@ class PositionalEmbedding(nn.Module):
 class LangModuleAttention(nn.Module):
     def __init__(
         self,
+        num_text_classes, 
+        use_lang_classifier=True,
         embed_dim=300,
         num_head=4,
         dropout=0.1,
@@ -42,6 +44,7 @@ class LangModuleAttention(nn.Module):
         self.d_model = embed_dim
         self.pe = PositionalEmbedding(embed_dim)
         self.num_head = num_head
+        self.use_lang_classifier = use_lang_classifier
         self.self_attention = nn.MultiheadAttention(
             embed_dim=embed_dim, 
             num_heads=self.num_head,
@@ -52,6 +55,18 @@ class LangModuleAttention(nn.Module):
         # self.dropout = nn.Dropout(dropout)
         # self.src_pad_idx = src_pad_idx
 
+        # project the lang features from 300 to 128
+        self.lang_projection = nn.Sequential(
+                nn.Linear(embed_dim, 128),
+                nn.Dropout()
+            )
+
+        # language classifier
+        if use_lang_classifier:
+            self.lang_cls = nn.Sequential(
+                nn.Linear(embed_dim, num_text_classes),
+                nn.Dropout()
+            )
 
     def lang_len_to_mask(self, lang_len, max_len=126, dtype=torch.bool):
         """ Create key padding mask for lang features' self-attention.
@@ -77,7 +92,15 @@ class LangModuleAttention(nn.Module):
         word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
         key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
         embedding = self.self_attention(word_embedding_with_pos, word_embedding_with_pos, word_embedding_with_pos, key_padding_mask=key_padding_mask)
-        return embedding
+        data_dict["lang_emb"] = self.lang_projection(embedding[0])
+        global_lang_feature = F.max_pool2d(
+            embedding[0].permute(0, 2, 1), kernel_size=[1, 126]
+        )
+        global_lang_feature = global_lang_feature.squeeze(-1)
+        if self.use_lang_classifier:
+            data_dict["lang_scores"] = self.lang_cls(global_lang_feature)
+
+        return data_dict
 
 
         

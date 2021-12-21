@@ -86,22 +86,29 @@ class RefNet(nn.Module):
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
             # (including attention and language classification)
+            if args.lang_type is "gru":
+                self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
 
-            # self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size)
-            # self.lang_att = LangModuleAttention(
-            #     embed_dim=300,
-            #     num_head=4,
-            #     dropout=0.1,
-            #     batch_first=True
-            # )
+            elif args.lang_type is "attention":
+                self.lang = LangModuleAttention(
+                    num_class, 
+                    use_lang_classifier,
+                    embed_dim=300,
+                    num_head=4,
+                    dropout=0.1,
+                    batch_first=True
+                )
+
             
-            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
             use_3dvg = True
             if use_3dvg:
-                self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
+                if args.lang_type is "attention":
+                    self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, attention=True)
+                else:
+                    self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, attention=False)
             else:
                 self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
             self.sequential = nn.ModuleList([self.feature_head, self.lang, self.match])
@@ -148,7 +155,6 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- LANGUAGE ENCODING ---------
-            self.lang_att(data_dict)
             self.lang(data_dict)
             data_dict = self.sequential[1](data_dict)
 
