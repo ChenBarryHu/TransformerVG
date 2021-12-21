@@ -101,7 +101,7 @@ class Solver():
 
         # Use a Cosine Learning Rate Schedule as in the 3DVG paper
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=self.optimizer,
-                                                                    T_max=self._total_iter["train"],
+                                                                    T_max=len(self.dataloader["train"]) * args.epoch,
                                                                     eta_min=1e-6)
         # Flag for usage of Learning Rate Schedule
         self.use_scheduler = False
