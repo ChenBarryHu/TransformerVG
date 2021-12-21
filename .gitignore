@@ -17,6 +17,7 @@ _3detr/datasets/scannet/
 weights/
 
 # cache
+models/transformer/__pycache__
 data/scannet/__pycache__
 lib/__pycache__
 lib/pointnet2/__pycache__

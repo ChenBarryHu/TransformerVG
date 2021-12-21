@@ -39,8 +39,8 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_normal=args.use_normal, 
         use_multiview=args.use_multiview
     )
-    # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    # FIXME-WINDOWS: change the num_worker based on the machine type
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     return dataset, dataloader
 
@@ -64,25 +64,13 @@ def get_model(args, dataset_config):
     # trainable model
     if args.use_pretrained:
         # load model
-        print("loading pretrained VoteNet...")
-        pretrained_model = RefNet(
-            num_class=DC.num_class,
-            num_heading_bin=DC.num_heading_bin,
-            num_size_cluster=DC.num_size_cluster,
-            mean_size_arr=DC.mean_size_arr,
-            num_proposal=args.num_proposals,
-            input_feature_dim=input_channels,
-            use_bidir=args.use_bidir,
-            no_reference=True
-        )
+        print("loading pretrained pipeline...")
 
         pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model_last.pth")
-        pretrained_model.load_state_dict(torch.load(pretrained_path), strict=False)
-
-        # mount
-        model.backbone_net = pretrained_model.backbone_net
-        model.vgen = pretrained_model.vgen
-        model.proposal = pretrained_model.proposal
+        model.load_state_dict(torch.load(pretrained_path), strict=False)
+        # FIXME: uncomment to  unfreeze the last layer of encoder
+        # for param in model.detr.decoder.layers[7].parameters():
+        #     param.requires_grad = True
 
         if args.no_detection:
             # freeze pointnet++ backbone
@@ -309,10 +297,11 @@ if __name__ == "__main__":
     #################################### [start] scanrefer arguments #######################################
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=5)
-    parser.add_argument("--epoch", type=int, help="number of epochs", default=10)
-    parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=2)
-    parser.add_argument("--val_step", type=int, help="iterations of validating", default=2)
+    # FIXME-WINDOWS: set the right batch_size
+    parser.add_argument("--batch_size", type=int, help="batch size", default=13)
+    parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
+    parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
+    parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3) # 1e-3 is a better lr in the experiment so far
     parser.add_argument("--wd", type=float, help="weight decay", default=1e-5)
     parser.add_argument("--num_points", type=int, default=40000, help="Point Number [default: 40000]")
@@ -355,7 +344,7 @@ if __name__ == "__main__":
     )
     ### Encoder
     parser.add_argument(
-        "--enc_type", default="vanilla", choices=["masked", "maskedv2", "vanilla"]
+        "--enc_type", default="masked", choices=["masked", "maskedv2", "vanilla"]
     )
     # Below options are only valid for vanilla encoder
     parser.add_argument("--enc_nlayers", default=3, type=int)
@@ -398,10 +387,10 @@ if __name__ == "__main__":
     parser.add_argument("--matcher_objectness_cost", default=0, type=float)
 
     ### Loss Weights
-    parser.add_argument("--loss_giou_weight", default=0, type=float)
+    parser.add_argument("--loss_giou_weight", default=1, type=float)
     parser.add_argument("--loss_sem_cls_weight", default=1, type=float)
     parser.add_argument(
-        "--loss_no_object_weight", default=0.2, type=float
+        "--loss_no_object_weight", default=0.25, type=float
     )  # "no object" or "background" class for detection
     parser.add_argument("--loss_angle_cls_weight", default=0.1, type=float)
     parser.add_argument("--loss_angle_reg_weight", default=0.5, type=float)
