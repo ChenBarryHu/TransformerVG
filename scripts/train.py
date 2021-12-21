@@ -124,10 +124,51 @@ def get_solver(args, dataloader):
     if args.use_two_optim:
         optimizer_3detr = build_optimizer(args, model.detr)
         optimizers.append(optimizer_3detr)
-        optimizer_reference = optim.Adam(model.sequential.parameters(), lr=args.lr, weight_decay=args.wd)
+        optimizer_reference = optim.Adam(
+            [
+                {"params": model.sequential[0].parameters()},
+                {"params": model.sequential[1].parameters(), "lr": 5e-4},
+                {"params": model.sequential[2].parameters(), "lr": 5e-4}
+            ],
+            lr=args.lr, weight_decay=args.wd)
         optimizers.append(optimizer_reference)
     else:
-        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
+        params_with_decay = []
+        params_without_decay = []
+        for name, param in model.detr.named_parameters():
+            if param.requires_grad is False:
+                continue
+            if args.filter_biases_wd and (len(param.shape) == 1 or name.endswith("bias")):
+                params_without_decay.append(param)
+            else:
+                params_with_decay.append(param)
+
+        if args.filter_biases_wd:
+            param_groups = [
+                {"params": params_without_decay, "weight_decay": 0.0},
+                {"params": params_with_decay, "weight_decay": args.weight_decay},
+            ]
+        else:
+            param_groups = [
+                {"params": params_with_decay, "weight_decay": args.weight_decay},
+            ]
+        # LR and WD hyperparameters taken over from the 3DVG paper.
+        # Parameters Detection Head
+        param_groups.append(
+            {"params": model.sequential[0].parameters(),
+             "lr": 2e-3, "weight_decay": 1e-5}
+        )
+        # Parameters Lang Module
+        param_groups.append(
+            {"params": model.sequential[1].parameters(),
+             "lr": 5e-4, "weight_decay": 1e-5}
+        )
+        # Parameters Matching Module
+        param_groups.append(
+            {"params": model.sequential[2].parameters(),
+             "lr": 5e-4, "weight_decay": 1e-5}
+        )
+        optimizer = optim.Adam(param_groups, lr=args.lr, weight_decay=args.wd)
         optimizers.append(optimizer)
 
     if args.use_checkpoint:
@@ -320,7 +361,7 @@ if __name__ == "__main__":
     parser.add_argument("--enc_nlayers", default=3, type=int)
     parser.add_argument("--enc_dim", default=256, type=int)
     parser.add_argument("--enc_ffn_dim", default=128, type=int)
-    parser.add_argument("--enc_dropout", default=0.1, type=float)
+    parser.add_argument("--enc_dropout", default=0.3, type=float)
     parser.add_argument("--enc_nhead", default=4, type=int)
     parser.add_argument("--enc_pos_embed", default=None, type=str)
     parser.add_argument("--enc_activation", default="relu", type=str)
@@ -329,7 +370,7 @@ if __name__ == "__main__":
     parser.add_argument("--dec_nlayers", default=8, type=int)
     parser.add_argument("--dec_dim", default=256, type=int)
     parser.add_argument("--dec_ffn_dim", default=256, type=int)
-    parser.add_argument("--dec_dropout", default=0.1, type=float)
+    parser.add_argument("--dec_dropout", default=0.3, type=float)
     parser.add_argument("--dec_nhead", default=4, type=int)
 
     ### MLP heads for predicting bounding boxes

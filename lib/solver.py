@@ -99,6 +99,12 @@ class Solver():
         self.stamp = stamp
         self.val_step = val_step
 
+        # Use a Cosine Learning Rate Schedule as in the 3DVG paper
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer,
+                                                                    self._total_iter["train"])
+        # Flag for usage of Learning Rate Schedule
+        self.use_scheduler = False
+
         self.detection = detection
         self.reference = reference
         self.use_lang_classifier = use_lang_classifier
@@ -288,6 +294,9 @@ class Solver():
             self.optimizer.zero_grad()
             self._running_log["loss"].backward()
             self.optimizer.step()
+            # Use of LR scheduler
+            if self.use_scheduler:
+                self.scheduler.step()
 
     def _compute_loss(self, data_dict):
         _, data_dict = get_loss(

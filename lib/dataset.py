@@ -17,6 +17,7 @@ import multiprocessing as mp
 from _3detr.utils.random_cuboid import RandomCuboid
 from _3detr.utils.pc_util import scale_points, shift_scale_points
 from torch.utils.data import Dataset
+import random
 
 
 sys.path.append(os.path.join(os.getcwd(), "lib"))  # HACK add the lib folder
@@ -61,6 +62,7 @@ class ScannetReferenceDataset(Dataset):
         self.use_multiview = use_multiview
         self.augment = augment
         self.lang_num_max = lang_num_max
+        self.should_shuffle = shuffle
 
         # from 3detr:
         self.random_cuboid_augmentor = RandomCuboid(
@@ -73,6 +75,42 @@ class ScannetReferenceDataset(Dataset):
         # load data
         self._load_data()
         self.multiview_data = {}
+
+    def split_scene_new(self,  scanrefer_data):
+        scanrefer_train_new = []
+        scanrefer_train_new_scene, scanrefer_train_scene = [], []
+        scene_id = ''
+        lang_num_max = self.lang_num_max
+        for data in scanrefer_data:
+            if scene_id != data["scene_id"]:
+                scene_id = data["scene_id"]
+                if len(scanrefer_train_scene) > 0:
+                    if self.should_shuffle:
+                        random.shuffle(scanrefer_train_scene)
+                    # print("scanrefer_train_scene", len(scanrefer_train_scene))
+                    for new_data in scanrefer_train_scene:
+                        if len(scanrefer_train_new_scene) >= lang_num_max:
+                            scanrefer_train_new.append(scanrefer_train_new_scene)
+                            scanrefer_train_new_scene = []
+                        scanrefer_train_new_scene.append(new_data)
+                    if len(scanrefer_train_new_scene) > 0:
+                        scanrefer_train_new.append(scanrefer_train_new_scene)
+                        scanrefer_train_new_scene = []
+                    scanrefer_train_scene = []
+            scanrefer_train_scene.append(data)
+        if len(scanrefer_train_scene) > 0:
+            if self.should_shuffle:
+                random.shuffle(scanrefer_train_scene)
+            # print("scanrefer_train_scene", len(scanrefer_train_scene))
+            for new_data in scanrefer_train_scene:
+                if len(scanrefer_train_new_scene) >= lang_num_max:
+                    scanrefer_train_new.append(scanrefer_train_new_scene)
+                    scanrefer_train_new_scene = []
+                scanrefer_train_new_scene.append(new_data)
+            if len(scanrefer_train_new_scene) > 0:
+                scanrefer_train_new.append(scanrefer_train_new_scene)
+                scanrefer_train_new_scene = []
+        return scanrefer_train_new
 
     def __len__(self):
         return len(self.scanrefer)
