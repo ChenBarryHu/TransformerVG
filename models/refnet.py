@@ -86,7 +86,7 @@ class RefNet(nn.Module):
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
             # (including attention and language classification)
-            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size)
+            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
