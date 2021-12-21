@@ -168,7 +168,7 @@ def get_solver(args, dataloader):
             {"params": model.sequential[2].parameters(),
              "lr": 5e-4, "weight_decay": 1e-5}
         )
-        optimizer = optim.Adam(param_groups, lr=args.lr, weight_decay=args.wd)
+        optimizer = optim.Adam(param_groups, lr=args.lr)
         optimizers.append(optimizer)
 
     if args.use_checkpoint:
