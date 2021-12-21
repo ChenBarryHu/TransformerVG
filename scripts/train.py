@@ -20,6 +20,7 @@ from lib.solver import Solver
 from lib.config import CONF
 from models.refnet import RefNet
 from _3detr.optimizer import *
+import random
 
 # FIXME: load the json files for train and val set
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
@@ -28,10 +29,48 @@ SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_
 # constants
 DC = ScannetDatasetConfig()
 
+
+def split_scene_new(scanrefer_data, lang_num_max=32, should_shuffle=False):
+    scanrefer_train_new = []
+    scanrefer_train_new_scene, scanrefer_train_scene = [], []
+    scene_id = ''
+    for data in scanrefer_data:
+        if scene_id != data["scene_id"]:
+            scene_id = data["scene_id"]
+            if len(scanrefer_train_scene) > 0:
+                if should_shuffle:
+                    random.shuffle(scanrefer_train_scene)
+                # print("scanrefer_train_scene", len(scanrefer_train_scene))
+                for new_data in scanrefer_train_scene:
+                    if len(scanrefer_train_new_scene) >= lang_num_max:
+                        scanrefer_train_new.append(scanrefer_train_new_scene)
+                        scanrefer_train_new_scene = []
+                    scanrefer_train_new_scene.append(new_data)
+                if len(scanrefer_train_new_scene) > 0:
+                    scanrefer_train_new.append(scanrefer_train_new_scene)
+                    scanrefer_train_new_scene = []
+                scanrefer_train_scene = []
+        scanrefer_train_scene.append(data)
+    if len(scanrefer_train_scene) > 0:
+        if should_shuffle:
+            random.shuffle(scanrefer_train_scene)
+        # print("scanrefer_train_scene", len(scanrefer_train_scene))
+        for new_data in scanrefer_train_scene:
+            if len(scanrefer_train_new_scene) >= lang_num_max:
+                scanrefer_train_new.append(scanrefer_train_new_scene)
+                scanrefer_train_new_scene = []
+            scanrefer_train_new_scene.append(new_data)
+        if len(scanrefer_train_new_scene) > 0:
+            scanrefer_train_new.append(scanrefer_train_new_scene)
+            scanrefer_train_new_scene = []
+    return scanrefer_train_new
+
 def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
+    scanrefer_new = split_scene_new(scanrefer[split])
     dataset = ScannetReferenceDataset(
         scanrefer=scanrefer[split], 
-        scanrefer_all_scene=all_scene_list, 
+        scanrefer_all_scene=all_scene_list,
+        scanrefer_new=scanrefer_new,
         split=split, 
         num_points=args.num_points, 
         use_height=args.use_height,
@@ -40,7 +79,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_multiview=args.use_multiview
     )
     # FIXME-WINDOWS: change the num_worker based on the machine type
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
 
     return dataset, dataloader
 
@@ -298,7 +337,7 @@ if __name__ == "__main__":
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
     # FIXME-WINDOWS: set the right batch_size
-    parser.add_argument("--batch_size", type=int, help="batch size", default=13)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=5)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
