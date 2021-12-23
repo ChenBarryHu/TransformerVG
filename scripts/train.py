@@ -334,7 +334,7 @@ if __name__ == "__main__":
         "--clip_gradient", default=0.1, type=float, help="Max L2 norm of the gradient"
     )
     parser.add_argument(
-        "--lang_type", default="attention", choices=["gru", "attention"]
+        "--lang_type", default="gru", choices=["gru", "attention"]
     )
 
     ##### Model #####
