@@ -38,15 +38,17 @@ class LangModuleAttention(nn.Module):
         embed_dim=300,
         num_head=4,
         dropout=0.1,
-        batch_first=True
+        batch_first=True,
+        lang_dim = 128
     ):
         super(LangModuleAttention, self).__init__()
         self.d_model = embed_dim
-        self.pe = PositionalEmbedding(embed_dim)
+        self.lang_dim = lang_dim
+        self.pe = PositionalEmbedding(lang_dim)
         self.num_head = num_head
         self.use_lang_classifier = use_lang_classifier
         self.self_attention = nn.MultiheadAttention(
-            embed_dim=embed_dim, 
+            embed_dim=lang_dim, 
             num_heads=self.num_head,
             dropout=dropout,
             batch_first=True
@@ -57,15 +59,13 @@ class LangModuleAttention(nn.Module):
 
         # project the lang features from 300 to 128
         self.lang_projection = nn.Sequential(
-                nn.Linear(embed_dim, 128),
-                nn.Dropout()
+                nn.Linear(self.d_model, self.lang_dim),
             )
 
         # language classifier
         if use_lang_classifier:
             self.lang_cls = nn.Sequential(
-                nn.Linear(embed_dim, num_text_classes),
-                nn.Dropout()
+                nn.Linear(lang_dim, num_text_classes),
             )
 
     def lang_len_to_mask(self, lang_len, max_len=126, dtype=torch.bool):
@@ -86,13 +86,13 @@ class LangModuleAttention(nn.Module):
         return mask
     
     def forward(self, data_dict):
-        word_embedding = data_dict["lang_feat"] # (batch_size, MAX_DES_LEN=126)
+        word_embedding = self.lang_projection(data_dict["lang_feat"]) # (batch_size, MAX_DES_LEN=126)
         word_embedding = word_embedding.permute(1,0,2)
         word_embedding_with_pos = self.pe(word_embedding)
         word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
         key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
         embedding = self.self_attention(word_embedding_with_pos, word_embedding_with_pos, word_embedding_with_pos, key_padding_mask=key_padding_mask)
-        data_dict["lang_emb"] = self.lang_projection(embedding[0])
+        data_dict["lang_emb"] = embedding[0]
         global_lang_feature = F.max_pool2d(
             embedding[0].permute(0, 2, 1), kernel_size=[1, 126]
         )
