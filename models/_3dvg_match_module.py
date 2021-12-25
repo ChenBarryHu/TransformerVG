@@ -110,7 +110,7 @@ class MatchModule(nn.Module):
         #features = self.mhatt(features, features, features, proposal_masks)
         features = self.self_attn[0](features, features, features, attention_weights=dist_weights, way=attention_matrix_way)
 
-        len_nun_max = 32 #data_dict["lang_feat_list"].shape[1] #TODO: This isn't implemented in dataset.
+        len_nun_max = data_dict["lang_feat_list"].shape[1] #TODO: This isn't implemented in dataset.
 
         #objectness_masks = objectness_masks.permute(0, 2, 1).contiguous()  # batch_size, 1, num_proposals
         data_dict["random"] = random.random() # TODO: Take this out of data_dict.
@@ -141,13 +141,13 @@ class MatchModule(nn.Module):
                     feature0[i, obj_mask[:total_len - obj_lens[i]], :] = obj_features[j:j + total_len - obj_lens[i], :]
 
 
-        feature1 = feature0[:, None, :, :].repeat(1, 1, 1, 1).reshape(batch_size*1, num_proposal, -1)
+        feature1 = feature0[:, None, :, :].repeat(1, len_nun_max, 1, 1).reshape(batch_size*len_nun_max, num_proposal, -1)
         if dist_weights is not None:
-            dist_weights = dist_weights[:, None, :, :, :].repeat(1, 1, 1, 1, 1).reshape(batch_size*1, dist_weights.shape[1], num_proposal, num_proposal)
+            dist_weights = dist_weights[:, None, :, :, :].repeat(1, len_nun_max, 1, 1, 1).reshape(batch_size*len_nun_max, dist_weights.shape[1], num_proposal, num_proposal)
 
         lang_fea = data_dict["lang_emb"]
-        lang_fea = lang_fea.unsqueeze(1).repeat(1, num_proposal, 1)
-        lang_fea = lang_fea.repeat(1, 1, 1)
+        #lang_fea = lang_fea.unsqueeze(1).repeat(1, num_proposal, 1)
+        lang_fea = lang_fea[:, :, None, :].repeat(1, 1, num_proposal, 1).reshape(batch_size*len_nun_max, num_proposal, -1)
         data_dict["attention_mask"] = None
         # print("features", features.shape, lang_fea.shape)
 

@@ -50,13 +50,25 @@ class LangModule(nn.Module):
             if self.use_lang_classifier:
                 lang_scores = self.lang_cls(lang_last)
                 lang_scores_list.append(lang_scores)
+        lang_last_cat = torch.empty((lang_last.shape[0], self.lang_num_max, lang_last.shape[1]))
+        if self.use_lang_classifier:
+            lang_scores_cat = torch.empty((lang_scores.shape[0], self.lang_num_max, lang_scores.shape[1]))
+        for i in range(self.lang_num_max - 1):
+            if i == 0:
+                lang_last_cat = torch.cat((lang_last_list[i].unsqueeze(1), lang_last_list[i+1].unsqueeze(1)), dim=1)
+                if self.use_lang_classifier:
+                    lang_scores_cat = torch.cat((lang_scores_list[i].unsqueeze(1), lang_scores_list[i+1].unsqueeze(1)), dim=1)
+            else:
+                lang_last_cat = torch.cat((lang_last_cat, lang_last_list[i+1].unsqueeze(1)), dim=1)
+                if self.use_lang_classifier:
+                    lang_scores_cat = torch.cat((lang_scores_cat, lang_scores_list[i+1].unsqueeze(1)), dim=1)
 
         # store the encoded language features
-        data_dict["lang_emb"] = torch.FloatTensor(lang_last_list).permute(1, 0, 2) # B, lang_num_max, hidden_size
+        data_dict["lang_emb"] = lang_last_cat # B, lang_num_max, hidden_size
 
         # classify
         if self.use_lang_classifier:
-            data_dict["lang_scores"] = torch.FloatTensor(lang_scores_list).permute(1, 0, 2)
+            data_dict["lang_scores"] = lang_scores_cat
 
 
         return data_dict
