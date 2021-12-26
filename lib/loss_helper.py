@@ -160,59 +160,24 @@ def compute_reference_loss(data_dict, config):
     """
 
     # unpack
-    cluster_preds = data_dict["cluster_ref"] # (B, num_proposal)
-
-    # predicted bbox
-    # pred_ref = data_dict['cluster_ref'].detach().cpu().numpy() # (B,)
-    # pred_center = data_dict['center'].detach().cpu().numpy() # (B,K,3)
-    # pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
-    # pred_heading_residual = torch.gather(data_dict['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
-    # pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
-    # pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
-    # pred_size_class = torch.argmax(data_dict['size_scores'], -1) # B,num_proposal
-    # pred_size_residual = torch.gather(data_dict['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-    # pred_size_class = pred_size_class.detach().cpu().numpy()
-    # pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
+    cluster_preds = data_dict["cluster_ref"] # (B*lang_num_max, num_proposal)
 
 
-    # size_unnormalized_3detr = data_dict['size_unnormalized'].detach().cpu().numpy()
-
-    # angle_continuous_3detr = data_dict['angle_continuous'].detach().cpu().numpy()
-
-    box_corners_3detr = data_dict['box_corners'].detach().cpu().numpy()
-
-    # ground truth bbox
-    # commend out since we are using 3detr outputs' corners
-    gt_center = data_dict['ref_center_label'].cpu().numpy() # (B,3)
-    gt_heading_class = data_dict['ref_heading_class_label'].cpu().numpy() # B
-    gt_heading_residual = data_dict['ref_heading_residual_label'].cpu().numpy() # B
-    gt_size_class = data_dict['ref_size_class_label'].cpu().numpy() # B
-    gt_size_residual = data_dict['ref_size_residual_label'].cpu().numpy() # B,3
-    
-    # convert gt bbox parameters to bbox corners
-    # comment out the next two lines since gt_boxes produced by scanrefer will not be used for evaluation
-    # gt_obb_batch = config.param2obb_batch(gt_center[:, 0:3], gt_heading_class, gt_heading_residual,
-    #                gt_size_class, gt_size_residual)
-
-    # comment out the next line since gt_boxes produced by scanrefer will not be used for evaluation
-    # gt_bbox_batch = get_3d_box_batch(gt_obb_batch[:, 3:6], gt_obb_batch[:, 6], gt_obb_batch[:, 0:3])
 
     # compute the iou score for all predictd positive ref
-    batch_size, num_proposals = cluster_preds.shape
-    labels = np.zeros((batch_size, num_proposals))    
+    batch_size, num_proposals = cluster_preds.shape #B*lang_num_max
+    labels = np.zeros((batch_size, num_proposals))
+
+    box_corners = data_dict["box_corners"][:, None, :, :, :].repeat(1, data_dict["lang_len_list"].shape[1], 1, 1,
+                                                                    1).view(batch_size, num_proposals, 8, 3)
+    box_corners_3detr = box_corners.detach().cpu().numpy()
     
     for i in range(batch_size):
-        # we comment out these codes since we use the corners output directly by 3detr
-        # convert the bbox parameters to bbox corners
-        # pred_obb_batch_3detr = np.zeros((pred_center.shape[1], 7))
-        # pred_obb_batch_3detr[:, 0:3] = pred_center[i, :, 0:3]
-        # pred_obb_batch_3detr[:, 3:6] = size_unnormalized_3detr[i,:,0:3]
-        # pred_obb_batch_3detr[:, 6] = angle_continuous_3detr[i]*-1
-        # pred_obb_batch = config.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
-        #             pred_size_class[i], pred_size_residual[i])
-        # pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
-        ref_idx = data_dict["ref_box_label"][i].argmax().item()
-        gt_bbox_batch_3detr = data_dict['gt_box_corners'][i][ref_idx].cpu().numpy()
+        ref_idx = data_dict["ref_box_label_list"].reshape(batch_size, -1)[i].argmax().item()
+        dim_1_gt_box_corners = data_dict["gt_box_corners"].shape[1]
+        gt_box_corners = data_dict['gt_box_corners'][:, None, :, :, :].repeat(1, data_dict["lang_len_list"].shape[1], 1, 1, 1)
+        gt_box_corners = gt_box_corners.view(batch_size, dim_1_gt_box_corners, 8, 3)
+        gt_bbox_batch_3detr = gt_box_corners[i][ref_idx].cpu().numpy()
 
         # we calcualte iou using the 3detr output corners and gt_corners
         ious = box3d_iou_batch(box_corners_3detr[i], np.tile(gt_bbox_batch_3detr, (num_proposals, 1, 1)))
@@ -235,8 +200,16 @@ def compute_reference_loss(data_dict, config):
 
 def compute_lang_classification_loss(data_dict):
     criterion = torch.nn.CrossEntropyLoss()
-    loss = criterion(data_dict["lang_scores"], data_dict["object_cat"])
-
+    # We can only calculate the loss from actual description and not the copies of these descriptions.
+    # Check how many actual descriptions we have per sample.
+    batch_size = data_dict["lang_scores"].shape[0]
+    loss = 0
+    for i in range(batch_size):
+        num_descriptions = data_dict["lang_num"][i]
+        loss += criterion(data_dict["lang_scores"][i, :num_descriptions, :],
+                          data_dict["object_cat_list"][i, :num_descriptions])
+    loss = loss/batch_size
+    #Bxlang_num_maxxnum_classes and Bxlang_num_max
     return loss
 
 def get_loss(data_dict, args, config, detection=True, reference=True, use_lang_classifier=False):
@@ -281,36 +254,7 @@ def get_loss(data_dict, args, config, detection=True, reference=True, use_lang_c
     loss_dict_reduced = reduce_dict(loss_dict)
     data_dict['3detr_loss'] = loss
 
-    # Obj loss
-    # objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
-    # num_proposal = objectness_label.shape[1]
-    # total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
-    # data_dict['objectness_label'] = objectness_label
-    # data_dict['objectness_mask'] = objectness_mask
-    # data_dict['object_assignment'] = object_assignment
-    # data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
-    # data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
-
-    # data_dict['objectness_label'] = None
-    # data_dict['objectness_mask'] = None
-    # data_dict['object_assignment'] = None
-    # data_dict['pos_ratio'] = None
-    # data_dict['neg_ratio'] = None
-
-    # Box loss and sem cls loss
-    # center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
-    # box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
-
     if detection:
-        # data_dict['vote_loss'] = vote_loss
-        # data_dict['objectness_loss'] = objectness_loss
-        # data_dict['center_loss'] = center_loss
-        # data_dict['heading_cls_loss'] = heading_cls_loss
-        # data_dict['heading_reg_loss'] = heading_reg_loss
-        # data_dict['size_cls_loss'] = size_cls_loss
-        # data_dict['size_reg_loss'] = size_reg_loss
-        # data_dict['sem_cls_loss'] = sem_cls_loss
-        # data_dict['box_loss'] = box_loss
 
         data_dict['vote_loss'] = torch.zeros(1)[0].cuda()
         # data_dict['objectness_loss'] = torch.zeros(1)[0].cuda()
@@ -342,7 +286,7 @@ def get_loss(data_dict, args, config, detection=True, reference=True, use_lang_c
         # ref_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
         # data_dict["cluster_labels"] = cluster_labels
         
-        
+        #TODO: I don't think this will work with the new dataset loading.
         data_dict["cluster_labels"] = objectness_label.new_zeros(objectness_label.shape).cuda() #This is needed in eval.
         data_dict["cluster_ref"] = objectness_label.new_zeros(objectness_label.shape).float().cuda()  #This is needed in eval.
 
