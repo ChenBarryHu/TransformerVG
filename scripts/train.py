@@ -66,7 +66,7 @@ def get_model(args, dataset_config):
         # load model
         print("loading pretrained pipeline...")
 
-        pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model_last.pth")
+        pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model.pth") # used model.pth as it stores the best model
         model.load_state_dict(torch.load(pretrained_path), strict=False)
         # FIXME: uncomment to  unfreeze the last layer of encoder
         for param in model.detr.decoder.layers[7].parameters():
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     parser.add_argument("--dec_nlayers", default=8, type=int)
     parser.add_argument("--dec_dim", default=256, type=int)
     parser.add_argument("--dec_ffn_dim", default=256, type=int)
-    parser.add_argument("--dec_dropout", default=0.3, type=float)
+    parser.add_argument("--dec_dropout", default=0.1, type=float)
     parser.add_argument("--dec_nhead", default=4, type=int)
 
     ### MLP heads for predicting bounding boxes
