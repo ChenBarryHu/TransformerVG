@@ -40,7 +40,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config):
     )
     print("evaluate on {} samples".format(len(dataset)))
 
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     return dataset, dataloader
 
@@ -432,7 +432,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", type=str, help="Folder containing the model")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=3)  #Detection eval works with batch_size of 5; Reference eval works with batch_size of 3!
+    parser.add_argument("--batch_size", type=int, help="batch size", default=12)  #Detection eval works with batch_size of 5; Reference eval works with batch_size of 3!
     parser.add_argument("--num_points", type=int, default=40000, help="Point Number [default: 40000]")
     parser.add_argument("--num_proposals", type=int, default=256, help="Proposal number [default: 256]")
     parser.add_argument("--num_scenes", type=int, default=-1, help="Number of scenes [default: -1]")
