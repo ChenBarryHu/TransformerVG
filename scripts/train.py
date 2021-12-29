@@ -66,7 +66,7 @@ def get_model(args, dataset_config):
         # load model
         print("loading pretrained pipeline...")
 
-        pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model_last.pth")
+        pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model.pth") # used model.pth as it stores the best model
         model.load_state_dict(torch.load(pretrained_path), strict=False)
         # FIXME: uncomment to  unfreeze the last layer of encoder
         for param in model.detr.decoder.layers[7].parameters():
