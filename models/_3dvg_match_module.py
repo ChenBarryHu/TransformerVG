@@ -149,9 +149,10 @@ class MatchModule(nn.Module):
         if self.attention is False:
             lang_fea = lang_fea.unsqueeze(1).repeat(1, num_proposal, 1)
             lang_fea = lang_fea.repeat(1, 1, 1)
+            data_dict["attention_mask"] = None
 
 
-        data_dict["attention_mask"] = None
+        # data_dict["attention_mask"] = None
         # print("features", features.shape, lang_fea.shape)
 
         feature1 = self.cross_attn[0](feature1, lang_fea, lang_fea, data_dict["attention_mask"])

@@ -59,6 +59,7 @@ class LangModuleBert(nn.Module):
         token_type_ids = data_dict["bert_token_type_ids"]
         attention_mask = data_dict["bert_attention_mask"]
         output = self.bert(input_ids, token_type_ids, attention_mask)
+        data_dict["attention_mask"] = (attention_mask == 0)
         data_dict['lang_emb'] = self.lang_projection(output[0])
         global_lang_feature = output[1]
         global_lang_feature = global_lang_feature.squeeze(-1)
@@ -125,6 +126,7 @@ class LangModuleTransEncoder(nn.Module):
         word_embedding_with_pos = self.pe(word_embedding)
         # word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
         key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
+        data_dict["attention_mask"] = key_padding_mask
         embedding = self.transformer_encoder(src=word_embedding_with_pos, src_key_padding_mask=key_padding_mask)
         embedding = self.transformer_encoder(src=word_embedding_with_pos)
         data_dict["lang_emb"] = embedding.permute(1,0,2)
@@ -200,6 +202,7 @@ class LangModuleAttention(nn.Module):
         word_embedding_with_pos = self.pe(word_embedding)
         word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
         key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
+        data_dict["attention_mask"] = key_padding_mask
         embedding = self.self_attention(word_embedding_with_pos, word_embedding_with_pos, word_embedding_with_pos, key_padding_mask=key_padding_mask)
         if self.use_fc:
             data_dict["lang_emb"] = self.fc(embedding[0])
