@@ -645,8 +645,9 @@ class ScannetReferenceDataset(Dataset):
 
             # store
             lang[scene_id][object_id][ann_id] = embeddings
-            sentence = ' '.join(tokens)
+            
             if self.use_bert:
+                sentence = ' '.join(tokens)
                 lang_bert[scene_id][object_id][ann_id] = self.bert_tokenizer(sentence, return_tensors='pt')
             lang_main[scene_id][object_id][ann_id]["main"] = main_embeddings
             if scene_id_pre == scene_id:
