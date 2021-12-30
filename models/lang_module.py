@@ -147,7 +147,8 @@ class LangModuleAttention(nn.Module):
         num_head=4,
         dropout=0.1,
         batch_first=True,
-        lang_dim = 128
+        lang_dim = 128,
+        use_fc=False
     ):
         super(LangModuleAttention, self).__init__()
         self.d_model = embed_dim
@@ -161,15 +162,14 @@ class LangModuleAttention(nn.Module):
             dropout=dropout,
             batch_first=True
         )
-        # self.fc_out = nn.Linear(embedding_size, trg_vocab_size)
-        # self.dropout = nn.Dropout(dropout)
-        # self.src_pad_idx = src_pad_idx
 
         # project the lang features from 300 to 128
         self.lang_projection = nn.Sequential(
                 nn.Linear(self.d_model, self.lang_dim),
             )
-        self.fc = nn.Linear(lang_dim, lang_dim)
+        self.use_fc = use_fc
+        if use_fc:
+            self.fc = nn.Linear(lang_dim, lang_dim)
 
         # language classifier
         if use_lang_classifier:
@@ -201,7 +201,10 @@ class LangModuleAttention(nn.Module):
         word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
         key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
         embedding = self.self_attention(word_embedding_with_pos, word_embedding_with_pos, word_embedding_with_pos, key_padding_mask=key_padding_mask)
-        data_dict["lang_emb"] = self.fc(embedding[0])
+        if self.use_fc:
+            data_dict["lang_emb"] = self.fc(embedding[0])
+        else:
+            data_dict["lang_emb"] = embedding[0]
         global_lang_feature = F.max_pool2d(
             embedding[0].permute(0, 2, 1), kernel_size=[1, 126]
         )

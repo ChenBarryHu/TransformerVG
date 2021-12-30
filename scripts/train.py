@@ -37,7 +37,8 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_height=args.use_height,
         use_color=args.use_color, 
         use_normal=args.use_normal, 
-        use_multiview=args.use_multiview
+        use_multiview=args.use_multiview,
+        use_bert=(args.lang_type=="bert")
     )
     # FIXME-WINDOWS: change the num_worker based on the machine type
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)

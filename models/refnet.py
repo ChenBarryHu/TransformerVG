@@ -86,10 +86,13 @@ class RefNet(nn.Module):
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
             # (including attention and language classification)
-            if args.lang_type is "gru":
+            # to compare strings, use "==" instead of "is" 
+            # The "==" operator compares the value or equality of two objects, 
+            # whereas the Python "is" operator checks whether two variables point to the same object in memory.
+            if args.lang_type == "gru":
                 self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
 
-            elif args.lang_type is "attention":
+            elif args.lang_type == "attention":
                 self.lang = LangModuleAttention(
                     num_class, 
                     use_lang_classifier,
@@ -98,7 +101,7 @@ class RefNet(nn.Module):
                     dropout=0.1,
                     batch_first=True
                 )
-            elif args.lang_type is "transformer_encoder":
+            elif args.lang_type == "transformer_encoder":
                 self.lang = LangModuleTransEncoder(
                     num_class, 
                     use_lang_classifier,
@@ -107,7 +110,7 @@ class RefNet(nn.Module):
                     dropout=0.1,
                     batch_first=True
                 )
-            elif args.lang_type is "bert":
+            elif args.lang_type == "bert":
                 self.lang = LangModuleBert(
                     num_class, 
                     use_lang_classifier,
