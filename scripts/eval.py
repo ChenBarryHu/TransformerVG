@@ -36,7 +36,8 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config):
         use_color=args.use_color, 
         use_height=args.use_height,
         use_normal=args.use_normal, 
-        use_multiview=args.use_multiview
+        use_multiview=args.use_multiview,
+        use_bert=(args.lang_type=="bert")
     )
     print("evaluate on {} samples".format(len(dataset)))
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.dataset_num_workers)
