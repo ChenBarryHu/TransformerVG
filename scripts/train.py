@@ -66,11 +66,11 @@ def get_model(args, dataset_config):
         # load model
         print("loading pretrained pipeline...")
 
-        pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model_last.pth")
+        pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model.pth") # used model.pth as it stores the best model
         model.load_state_dict(torch.load(pretrained_path), strict=False)
         # FIXME: uncomment to  unfreeze the last layer of encoder
-        # for param in model.detr.decoder.layers[7].parameters():
-        #     param.requires_grad = True
+        for param in model.detr.decoder.layers[7].parameters():
+            param.requires_grad = True
 
         if args.no_detection:
             # freeze pointnet++ backbone
@@ -298,7 +298,7 @@ if __name__ == "__main__":
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
     # FIXME-WINDOWS: set the right batch_size
-    parser.add_argument("--batch_size", type=int, help="batch size", default=13)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=14)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
@@ -333,6 +333,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--clip_gradient", default=0.1, type=float, help="Max L2 norm of the gradient"
     )
+    parser.add_argument(
+        "--lang_type", default="attention", choices=["gru", "attention"]
+    )
 
     ##### Model #####
     parser.add_argument(
@@ -359,7 +362,7 @@ if __name__ == "__main__":
     parser.add_argument("--dec_nlayers", default=8, type=int)
     parser.add_argument("--dec_dim", default=256, type=int)
     parser.add_argument("--dec_ffn_dim", default=256, type=int)
-    parser.add_argument("--dec_dropout", default=0.3, type=float)
+    parser.add_argument("--dec_dropout", default=0.1, type=float)
     parser.add_argument("--dec_nhead", default=4, type=int)
 
     ### MLP heads for predicting bounding boxes

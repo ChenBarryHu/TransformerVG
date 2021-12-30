@@ -210,6 +210,8 @@ class Solver():
                     self._set_phase("train")
                     self._epoch_report(epoch_id)
 
+                # self._feed(self.dataloader["train"], "train", epoch_id)
+
                 # save model
                 # TODO: uncomment the following three lines back
                 self._log("saving last models...\n")

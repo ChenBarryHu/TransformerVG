@@ -13,6 +13,9 @@ data/frames_square/
 _3detr/datasets/scannet/
 3detr/datasets/scannet/
 
+
+# local_config
+lib/config_3080ti.py
 # weights
 weights/
 

@@ -11,7 +11,7 @@ from functools import partial
 from models.backbone_module import Pointnet2Backbone
 from models.voting_module import VotingModule
 from models.proposal_module import ProposalModule
-from models.lang_module import LangModule
+from models.lang_module import LangModule, LangModuleAttention
 from models.match_module import MatchModule
 from models._3dvg_match_module import MatchModule as dvg_matchmodule
 from _3detr.models import build_model
@@ -86,13 +86,29 @@ class RefNet(nn.Module):
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
             # (including attention and language classification)
-            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
+            if args.lang_type is "gru":
+                self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
+
+            elif args.lang_type is "attention":
+                self.lang = LangModuleAttention(
+                    num_class, 
+                    use_lang_classifier,
+                    embed_dim=300,
+                    num_head=4,
+                    dropout=0.1,
+                    batch_first=True
+                )
+
+            
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
             use_3dvg = True
             if use_3dvg:
-                self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
+                if args.lang_type is "attention":
+                    self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, attention=True)
+                else:
+                    self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, attention=False)
             else:
                 self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
             self.sequential = nn.ModuleList([self.feature_head, self.lang, self.match])
@@ -139,7 +155,7 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- LANGUAGE ENCODING ---------
-            #data_dict = self.lang(data_dict)
+            self.lang(data_dict)
             data_dict = self.sequential[1](data_dict)
 
             #######################################

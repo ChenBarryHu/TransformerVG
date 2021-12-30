@@ -197,14 +197,14 @@ class ScannetDatasetConfig(object):
 
     ############################# [start] FROM 3detr ##############################
     def box_parametrization_to_corners(self, box_center_unnorm, box_size, box_angle):
-        box_center_upright = flip_axis_to_camera_tensor(box_center_unnorm)
+        # box_center_upright = flip_axis_to_camera_tensor(box_center_unnorm) # not needed since we are producing bbox corners according to scanrefer's format
         boxes = get_3d_box_batch_tensor(
-            box_size, box_angle, box_center_upright)
+            box_size, box_angle, box_center_unnorm)
         return boxes
 
     def box_parametrization_to_corners_np(self, box_center_unnorm, box_size, box_angle):
-        box_center_upright = flip_axis_to_camera_np(box_center_unnorm)
-        boxes = get_3d_box_batch_np(box_size, box_angle, box_center_upright)
+        # box_center_upright = flip_axis_to_camera_np(box_center_unnorm) # not needed since we are producing bbox corners according to scanrefer's format
+        boxes = get_3d_box_batch_np(box_size, box_angle, box_center_unnorm)
         return boxes
 
 
