@@ -5,7 +5,7 @@ import torch.nn as nn
 import math
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-
+from transformers import BertModel
 
 
 class PositionalEmbedding(nn.Module):
@@ -29,7 +29,45 @@ class PositionalEmbedding(nn.Module):
         x = x + self.pe[:x.size(0)]
         return self.dropout(x)
 
+class LangModuleBert(nn.Module):
+    def __init__(
+        self,
+        num_text_classes, 
+        use_lang_classifier=True,
+        embed_dim=768,
+        num_head=4,
+        dropout=0.1,
+        batch_first=True,
+        lang_dim = 128
+    ):
+        super(LangModuleBert, self).__init__()
+        self.d_model = embed_dim
+        self.lang_dim = lang_dim
+        self.use_lang_classifier = use_lang_classifier
+        self.lang_projection = nn.Sequential(
+            nn.Linear(self.d_model, self.lang_dim),
+        )
+        if use_lang_classifier:
+            self.lang_cls = nn.Sequential(
+                nn.Linear(embed_dim, num_text_classes),
+            )
+        self.bert = BertModel.from_pretrained("bert-base-uncased")
+        for param in self.bert.parameters():
+            param.requires_grad = False
+    def forward(self, data_dict):
+        input_ids = data_dict["bert_input_ids"]
+        token_type_ids = data_dict["bert_token_type_ids"]
+        attention_mask = data_dict["bert_attention_mask"]
+        output = self.bert(input_ids, token_type_ids, attention_mask)
+        data_dict['lang_emb'] = self.lang_projection(output[0])
+        global_lang_feature = output[1]
+        global_lang_feature = global_lang_feature.squeeze(-1)
+        if self.use_lang_classifier:
+            data_dict["lang_scores"] = self.lang_cls(global_lang_feature)
+        return data_dict
 
+
+    
 class LangModuleTransEncoder(nn.Module):
     def __init__(
         self,
@@ -49,20 +87,14 @@ class LangModuleTransEncoder(nn.Module):
         self.use_lang_classifier = use_lang_classifier
         self.transformer_encoder_layer = nn.TransformerEncoderLayer(d_model=lang_dim, nhead=4)
         self.transformer_encoder = nn.TransformerEncoder(self.transformer_encoder_layer, num_layers=1)
-        self.self_attention = nn.MultiheadAttention(
-            embed_dim=lang_dim, 
-            num_heads=self.num_head,
-            dropout=dropout,
-            batch_first=True
-        )
         # self.fc_out = nn.Linear(embedding_size, trg_vocab_size)
         # self.dropout = nn.Dropout(dropout)
         # self.src_pad_idx = src_pad_idx
 
         # project the lang features from 300 to 128
         self.lang_projection = nn.Sequential(
-                nn.Linear(self.d_model, self.lang_dim),
-            )
+            nn.Linear(self.d_model, self.lang_dim),
+        )
 
         # language classifier
         if use_lang_classifier:

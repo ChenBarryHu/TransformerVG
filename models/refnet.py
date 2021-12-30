@@ -11,7 +11,7 @@ from functools import partial
 from models.backbone_module import Pointnet2Backbone
 from models.voting_module import VotingModule
 from models.proposal_module import ProposalModule
-from models.lang_module import LangModule, LangModuleAttention, LangModuleTransEncoder
+from models.lang_module import LangModule, LangModuleAttention, LangModuleBert, LangModuleTransEncoder
 from models.match_module import MatchModule
 from models._3dvg_match_module import MatchModule as dvg_matchmodule
 from _3detr.models import build_model
@@ -107,6 +107,15 @@ class RefNet(nn.Module):
                     dropout=0.1,
                     batch_first=True
                 )
+            elif args.lang_type is "bert":
+                self.lang = LangModuleBert(
+                    num_class, 
+                    use_lang_classifier,
+                    embed_dim=768,
+                    num_head=4,
+                    dropout=0.1,
+                    batch_first=True
+                )
 
             
 
@@ -114,7 +123,7 @@ class RefNet(nn.Module):
             # Match the generated proposals and select the most confident ones
             use_3dvg = True
             if use_3dvg:
-                if args.lang_type in ["attention", "transformer_encoder"]:
+                if args.lang_type in ["attention", "transformer_encoder", "bert"]:
                     self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, attention=True)
                 else:
                     self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, attention=False)
