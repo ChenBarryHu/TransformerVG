@@ -171,12 +171,14 @@ def compute_reference_loss(data_dict, config):
     box_corners = data_dict["box_corners"][:, None, :, :, :].repeat(1, data_dict["lang_len_list"].shape[1], 1, 1,
                                                                     1).view(batch_size, num_proposals, 8, 3)
     box_corners_3detr = box_corners.detach().cpu().numpy()
-    
+
+    dim_1_gt_box_corners = data_dict["gt_box_corners"].shape[1]
+    gt_box_corners = data_dict['gt_box_corners'][:, None, :, :, :].repeat(1,
+                                                                          data_dict["lang_len_list"].shape[1], 1, 1, 1)
+    gt_box_corners = gt_box_corners.view(batch_size, dim_1_gt_box_corners, 8, 3)
+
     for i in range(batch_size):
         ref_idx = data_dict["ref_box_label_list"].reshape(batch_size, -1)[i].argmax().item()
-        dim_1_gt_box_corners = data_dict["gt_box_corners"].shape[1]
-        gt_box_corners = data_dict['gt_box_corners'][:, None, :, :, :].repeat(1, data_dict["lang_len_list"].shape[1], 1, 1, 1)
-        gt_box_corners = gt_box_corners.view(batch_size, dim_1_gt_box_corners, 8, 3)
         gt_bbox_batch_3detr = gt_box_corners[i][ref_idx].cpu().numpy()
 
         # we calcualte iou using the 3detr output corners and gt_corners
@@ -193,8 +195,20 @@ def compute_reference_loss(data_dict, config):
     cluster_labels = torch.FloatTensor(labels).cuda()
 
     # reference loss
+
+    bs = data_dict["lang_num"].shape[0]
+    cluster_labels = cluster_labels.view(bs, -1, num_proposals)  # bs x lang_num_max x num_proposals
+    cluster_preds = cluster_preds.view(bs, -1, num_proposals)  # bs x lang_num_max x num_proposals
     criterion = SoftmaxRankingLoss()
-    loss = criterion(cluster_preds, cluster_labels.float().clone())
+    loss = 0
+    for i in range(bs):
+        lang_num = data_dict["lang_num"][i]
+        loss += criterion(cluster_preds[i, :lang_num, :], cluster_labels[i, :lang_num, :].float().clone())
+    loss = loss / bs
+    #loss = criterion(cluster_preds, cluster_labels.float().clone())
+    lang_num_max = cluster_labels.shape[1]
+    cluster_labels = cluster_labels.view(bs*lang_num_max, num_proposals)  # bs x lang_num_max x num_proposals
+    cluster_preds = cluster_preds.view(bs*lang_num_max, num_proposals)
 
     return loss, cluster_preds, cluster_labels
 
