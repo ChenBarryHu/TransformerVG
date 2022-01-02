@@ -166,37 +166,40 @@ def compute_reference_loss(data_dict, config):
 
     # compute the iou score for all predictd positive ref
     batch_size, num_proposals = cluster_preds.shape #B*lang_num_max
-    labels = np.zeros((batch_size, num_proposals))
 
-    box_corners = data_dict["box_corners"][:, None, :, :, :].repeat(1, data_dict["lang_len_list"].shape[1], 1, 1,
-                                                                    1).view(batch_size, num_proposals, 8, 3)
+    bs = data_dict["lang_num"].shape[0]
+    lang_num_max = data_dict["lang_len_list"].shape[1]
+    labels = np.zeros((bs, lang_num_max, num_proposals))
+
+    box_corners = data_dict["box_corners"] #[:, None, :, :, :].repeat(1, data_dict["lang_len_list"].shape[1], 1, 1,
+                                                                    #1).view(batch_size, num_proposals, 8, 3)
     box_corners_3detr = box_corners.detach().cpu().numpy()
 
-    dim_1_gt_box_corners = data_dict["gt_box_corners"].shape[1]
-    gt_box_corners = data_dict['gt_box_corners'][:, None, :, :, :].repeat(1,
-                                                                          data_dict["lang_len_list"].shape[1], 1, 1, 1)
-    gt_box_corners = gt_box_corners.view(batch_size, dim_1_gt_box_corners, 8, 3)
+    #dim_1_gt_box_corners = data_dict["gt_box_corners"].shape[1]
+    gt_box_corners = data_dict['gt_box_corners'] #[:, None, :, :, :].repeat(1,
+                                                                          #data_dict["lang_len_list"].shape[1], 1, 1, 1)
+    #gt_box_corners = gt_box_corners.view(batch_size, dim_1_gt_box_corners, 8, 3)
 
-    for i in range(batch_size):
-        ref_idx = data_dict["ref_box_label_list"].reshape(batch_size, -1)[i].argmax().item()
-        gt_bbox_batch_3detr = gt_box_corners[i][ref_idx].cpu().numpy()
+    for i in range(bs):
+        for l in range(data_dict["lang_num"][i]):
+            ref_idx = data_dict["ref_box_label_list"][i][l].argmax().item()
+            gt_bbox_batch_3detr = gt_box_corners[i][ref_idx].cpu().numpy()
 
-        # we calcualte iou using the 3detr output corners and gt_corners
-        ious = box3d_iou_batch(box_corners_3detr[i], np.tile(gt_bbox_batch_3detr, (num_proposals, 1, 1)))
-        # ious = box3d_iou_batch(box_corners_3detr[i], np.tile(gt_bbox_batch[i], (num_proposals, 1, 1)))
-        # ious = box3d_iou_batch(pred_bbox_batch, np.tile(gt_bbox_batch[i], (num_proposals, 1, 1)))
+            # we calcualte iou using the 3detr output corners and gt_corners
+            ious = box3d_iou_batch(box_corners_3detr[i], np.tile(gt_bbox_batch_3detr, (num_proposals, 1, 1)))
+            # ious = box3d_iou_batch(box_corners_3detr[i], np.tile(gt_bbox_batch[i], (num_proposals, 1, 1)))
+            # ious = box3d_iou_batch(pred_bbox_batch, np.tile(gt_bbox_batch[i], (num_proposals, 1, 1)))
 
-        # DEBUG the following two lines are for debug use, for checking how well predicted boxes overlaps with reference ground truth
-        # obj_cat = data_dict["object_cat"][i]
-        # print(f"max_iou with reference box: {ious.max()}, gt_reference_label: {config.class2type[obj_cat.item()]}")
-        
-        labels[i, ious.argmax()] = 1 # treat the bbox with highest iou score as the gt
+            # DEBUG the following two lines are for debug use, for checking how well predicted boxes overlaps with reference ground truth
+            # obj_cat = data_dict["object_cat"][i]
+            # print(f"max_iou with reference box: {ious.max()}, gt_reference_label: {config.class2type[obj_cat.item()]}")
+
+            labels[i, l, ious.argmax()] = 1 # treat the bbox with highest iou score as the gt
 
     cluster_labels = torch.FloatTensor(labels).cuda()
 
     # reference loss
 
-    bs = data_dict["lang_num"].shape[0]
     cluster_labels = cluster_labels.view(bs, -1, num_proposals)  # bs x lang_num_max x num_proposals
     cluster_preds = cluster_preds.view(bs, -1, num_proposals)  # bs x lang_num_max x num_proposals
     criterion = SoftmaxRankingLoss()
@@ -206,7 +209,6 @@ def compute_reference_loss(data_dict, config):
         loss += criterion(cluster_preds[i, :lang_num, :], cluster_labels[i, :lang_num, :].float().clone())
     loss = loss / bs
     #loss = criterion(cluster_preds, cluster_labels.float().clone())
-    lang_num_max = cluster_labels.shape[1]
     cluster_labels = cluster_labels.view(bs*lang_num_max, num_proposals)  # bs x lang_num_max x num_proposals
     cluster_preds = cluster_preds.view(bs*lang_num_max, num_proposals)
 
