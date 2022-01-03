@@ -28,8 +28,7 @@ class RefNet(nn.Module):
         super().__init__()
         self.detr, _ = build_model(args, dataset_config)
 
-        # FIXME-WINDOWS: set the weight_path to the correct path to 3detr-m (masked) pretrained weights
-        # weight_path = "/home/shichenhu/3dvg-transformer/weights/scannet_ep1080_epoch_600/checkpoint_best.pth"
+        # FIXME: set the weight_path to the correct path to 3detr-m (masked) pretrained weights
         weight_path = "/home/barry/dev/3dvg-3detr/outputs/experiment_6/checkpoint_best.pth"
         if os.path.isfile(weight_path):
             print("Loading pretrained 3detr weights")

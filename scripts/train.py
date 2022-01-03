@@ -8,7 +8,7 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
-
+import wandb
 from torch.utils.data import DataLoader
 from datetime import datetime
 from copy import deepcopy
@@ -21,9 +21,14 @@ from lib.config import CONF
 from models.refnet import RefNet
 from _3detr.optimizer import *
 
-# FIXME: load the json files for train and val set
+# load the json files for train and val set
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
 SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))
+
+# setup wandb
+wandb.init(project="3dvg-transformer", entity="tum-3dvg")
+wandb.run.name = "l6"
+wandb.run.save()
 
 # constants
 DC = ScannetDatasetConfig()
@@ -40,7 +45,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_multiview=args.use_multiview,
         use_bert=(args.lang_type=="bert")
     )
-    # FIXME-WINDOWS: change the num_worker based on the machine type
+    # FIXME: change the num_worker based on the machine type
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     return dataset, dataloader
@@ -69,7 +74,7 @@ def get_model(args, dataset_config):
 
         pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model.pth") # used model.pth as it stores the best model
         model.load_state_dict(torch.load(pretrained_path), strict=False)
-        # FIXME: uncomment to  unfreeze the last layer of encoder
+        # uncomment to  unfreeze the last layer of encoder
         # for param in model.detr.decoder.layers[7].parameters():
         #     param.requires_grad = True
 
@@ -298,7 +303,7 @@ if __name__ == "__main__":
     #################################### [start] scanrefer arguments #######################################
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    # FIXME-WINDOWS: set the right batch_size
+    # FIXME: set the right batch_size
     parser.add_argument("--batch_size", type=int, help="batch size", default=14)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
@@ -450,5 +455,6 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = False
     np.random.seed(args.seed)
 
+    wandb.config.update(args)
     train(args)
     

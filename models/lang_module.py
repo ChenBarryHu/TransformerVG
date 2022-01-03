@@ -277,8 +277,8 @@ class LangModule(nn.Module):
         lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1) # batch_size, hidden_size * num_dir
 
         # store the encoded language features
-        # data_dict["lang_emb"] = lang_last # B, hidden_size
-        data_dict["lang_emb"] = lang_intermediate # lang_last
+
+        data_dict["lang_emb"] = lang_intermediate # data_dict["lang_emb"] = lang_last # B, hidden_size
         
         # classify
         if self.use_lang_classifier:
