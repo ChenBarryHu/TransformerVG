@@ -70,8 +70,8 @@ def get_model(args, dataset_config):
         pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model.pth") # used model.pth as it stores the best model
         model.load_state_dict(torch.load(pretrained_path), strict=False)
         # FIXME: uncomment to  unfreeze the last layer of encoder
-        for param in model.detr.decoder.layers[7].parameters():
-            param.requires_grad = True
+        # for param in model.detr.decoder.layers[7].parameters():
+        #     param.requires_grad = True
 
         if args.no_detection:
             # freeze pointnet++ backbone
@@ -336,6 +336,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--lang_type", default="bert", choices=["gru", "attention", "transformer_encoder", "bert"]
+    )
+    parser.add_argument(
+        "--use_att_mask", action="store_true", default=True, help="Use the attention mask in the matching module."
     )
 
     ##### Model #####
