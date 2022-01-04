@@ -27,7 +27,7 @@ SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_
 
 # setup wandb
 wandb.init(project="3dvg-transformer", entity="tum-3dvg")
-wandb.run.name = "l6"
+wandb.run.name = "l8"
 wandb.run.save()
 
 # constants
