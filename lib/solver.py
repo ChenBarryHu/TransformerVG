@@ -104,7 +104,7 @@ class Solver():
                                                                     T_max=len(self.dataloader["train"]) * args.epoch,
                                                                     eta_min=1e-6)
         # Flag for usage of Learning Rate Schedule
-        self.use_scheduler = False
+        self.use_scheduler = True
 
         self.detection = detection
         self.reference = reference

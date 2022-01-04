@@ -41,7 +41,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_bert=(args.lang_type=="bert")
     )
     # FIXME-WINDOWS: change the num_worker based on the machine type
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=20)
 
     return dataset, dataloader
 
@@ -299,10 +299,10 @@ if __name__ == "__main__":
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
     # FIXME-WINDOWS: set the right batch_size
-    parser.add_argument("--batch_size", type=int, help="batch size", default=14)
-    parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=34)
+    parser.add_argument("--epoch", type=int, help="number of epochs", default=50)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
-    parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
+    parser.add_argument("--val_step", type=int, help="iterations of validating", default=5)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3) # 1e-3 is a better lr in the experiment so far
     parser.add_argument("--wd", type=float, help="weight decay", default=1e-5)
     parser.add_argument("--num_points", type=int, default=40000, help="Point Number [default: 40000]")

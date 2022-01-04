@@ -17,7 +17,7 @@ import multiprocessing as mp
 from _3detr.utils.random_cuboid import RandomCuboid
 from _3detr.utils.pc_util import scale_points, shift_scale_points
 from torch.utils.data import Dataset
-from transformers import BertTokenizer
+#from transformers import BertTokenizer
 import random
 
 

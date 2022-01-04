@@ -5,7 +5,7 @@ import torch.nn as nn
 import math
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from transformers import BertModel
+#from transformers import BertModel
 
 
 class PositionalEmbedding(nn.Module):
