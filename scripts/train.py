@@ -66,7 +66,7 @@ def split_scene_new(scanrefer_data, lang_num_max=32, should_shuffle=False):
     return scanrefer_train_new
 
 def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
-    scanrefer_new = split_scene_new(scanrefer_data=[split], lang_num_max=args.lang_num_max)
+    scanrefer_new = split_scene_new(scanrefer_data=scanrefer[split], lang_num_max=args.lang_num_max)
     dataset = ScannetReferenceDataset(
         scanrefer=scanrefer[split], 
         scanrefer_all_scene=all_scene_list,
