@@ -66,7 +66,7 @@ def split_scene_new(scanrefer_data, lang_num_max=32, should_shuffle=False):
     return scanrefer_train_new
 
 def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
-    scanrefer_new = split_scene_new(scanrefer[split])
+    scanrefer_new = split_scene_new(scanrefer_data=[split], lang_num_max=args.lang_num_max)
     dataset = ScannetReferenceDataset(
         scanrefer=scanrefer[split], 
         scanrefer_all_scene=all_scene_list,
@@ -337,7 +337,7 @@ if __name__ == "__main__":
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
     # FIXME-WINDOWS: set the right batch_size
-    parser.add_argument("--batch_size", type=int, help="batch size", default=5)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=11)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
@@ -360,6 +360,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")
     parser.add_argument("--use_two_optim", action="store_true", help="Use 2 separate optimizers for detection and reference part.")
+    parser.add_argument("--lang_num_max", type=int, default=32, help="Number of descriptions that are used per one scene.")
 
     #################################### [start] 3detr arguments #######################################
     parser.add_argument("--base_lr", default=5e-4, type=float)
