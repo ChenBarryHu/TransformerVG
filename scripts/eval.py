@@ -36,11 +36,11 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config):
         use_color=args.use_color, 
         use_height=args.use_height,
         use_normal=args.use_normal, 
-        use_multiview=args.use_multiview
+        use_multiview=args.use_multiview,
+        use_bert=(args.lang_type=="bert")
     )
     print("evaluate on {} samples".format(len(dataset)))
-
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.dataset_num_workers)
 
     return dataset, dataloader
 
@@ -432,7 +432,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", type=str, help="Folder containing the model")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=3)  #Detection eval works with batch_size of 5; Reference eval works with batch_size of 3!
+    parser.add_argument("--batch_size", required=True, type=int, help="batch size", default=3)  #Detection eval works with batch_size of 5; Reference eval works with batch_size of 3! batch_size can be 14 on 3080ti
     parser.add_argument("--num_points", type=int, default=40000, help="Point Number [default: 40000]")
     parser.add_argument("--num_proposals", type=int, default=256, help="Proposal number [default: 256]")
     parser.add_argument("--num_scenes", type=int, default=-1, help="Number of scenes [default: -1]")
@@ -465,6 +465,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--clip_gradient", default=0.1, type=float, help="Max L2 norm of the gradient"
     )
+    parser.add_argument(
+        "--lang_type", default="bert", choices=["gru", "attention", "transformer_encoder", "bert"]
+    )
+    parser.add_argument(
+        "--use_att_mask", action="store_true", default=True, help="Use the attention mask in the matching module."
+    )
 
     ##### Model #####
     parser.add_argument(
@@ -476,13 +482,13 @@ if __name__ == "__main__":
     )
     ### Encoder
     parser.add_argument(
-        "--enc_type", default="vanilla", choices=["masked", "maskedv2", "vanilla"]
+        "--enc_type", default="masked", choices=["masked", "maskedv2", "vanilla"]
     )
     # Below options are only valid for vanilla encoder
     parser.add_argument("--enc_nlayers", default=3, type=int)
     parser.add_argument("--enc_dim", default=256, type=int)
     parser.add_argument("--enc_ffn_dim", default=128, type=int)
-    parser.add_argument("--enc_dropout", default=0.1, type=float)
+    parser.add_argument("--enc_dropout", default=0.3, type=float)
     parser.add_argument("--enc_nhead", default=4, type=int)
     parser.add_argument("--enc_pos_embed", default=None, type=str)
     parser.add_argument("--enc_activation", default="relu", type=str)
@@ -519,10 +525,10 @@ if __name__ == "__main__":
     parser.add_argument("--matcher_objectness_cost", default=0, type=float)
 
     ### Loss Weights
-    parser.add_argument("--loss_giou_weight", default=0, type=float)
+    parser.add_argument("--loss_giou_weight", default=1, type=float)
     parser.add_argument("--loss_sem_cls_weight", default=1, type=float)
     parser.add_argument(
-        "--loss_no_object_weight", default=0.2, type=float
+        "--loss_no_object_weight", default=0.25, type=float
     )  # "no object" or "background" class for detection
     parser.add_argument("--loss_angle_cls_weight", default=0.1, type=float)
     parser.add_argument("--loss_angle_reg_weight", default=0.5, type=float)
@@ -540,7 +546,7 @@ if __name__ == "__main__":
         help="Root directory containing the dataset files. \
                   If None, default values from scannet.py/sunrgbd.py are used",
     )
-    parser.add_argument("--dataset_num_workers", default=0, type=int)
+    parser.add_argument("--dataset_num_workers", required=True, default=6, type=int) # set to required, works well with 6 on 3080ti
     # parser.add_argument("--batchsize_per_gpu", default=8, type=int) comment out since we can use "batchsize" arg field from scanrefer above
 
     ##### Training #####

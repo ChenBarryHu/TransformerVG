@@ -11,6 +11,7 @@ import numpy as np
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
 from torch.optim.lr_scheduler import StepLR, MultiStepLR
+import wandb
 
 
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
@@ -209,6 +210,8 @@ class Solver():
                     self._dump_log("val")
                     self._set_phase("train")
                     self._epoch_report(epoch_id)
+
+                # self._feed(self.dataloader["train"], "train", epoch_id)
 
                 # save model
                 # TODO: uncomment the following three lines back
@@ -483,13 +486,19 @@ class Solver():
             "loss": ["loss", "ref_loss", "lang_loss", "3detr_loss"],
             "score": ["lang_acc", "ref_acc", "obj_acc", "pos_ratio", "neg_ratio", "iou_rate_0.25", "iou_rate_0.5"]
         }
+        # wandb.log(dict(self.log))
+        wandb_dict = {}
+        wandb_dict["global_iter_num"] = self._global_iter_id
         for key in log:
             for item in log[key]:
+                wandb_dict[f"[{phase}]{item}"] = np.mean([v for v in self.log[phase][item]])
                 self._log_writer[phase].add_scalar(
                     "{}/{}".format(key, item),
                     np.mean([v for v in self.log[phase][item]]),
                     self._global_iter_id
                 )
+        wandb.log(wandb_dict)
+        
 
     def _finish(self, epoch_id):
         # print best

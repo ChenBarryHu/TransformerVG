@@ -17,6 +17,7 @@ import multiprocessing as mp
 from _3detr.utils.random_cuboid import RandomCuboid
 from _3detr.utils.pc_util import scale_points, shift_scale_points
 from torch.utils.data import Dataset
+from transformers import BertTokenizer
 import random
 
 
@@ -48,6 +49,7 @@ class ScannetReferenceDataset(Dataset):
                  use_color=False,
                  use_normal=False,
                  use_multiview=False,
+                 use_bert=False,
                  augment=False,
                  shuffle=False,
                  use_random_cuboid=True,
@@ -67,7 +69,9 @@ class ScannetReferenceDataset(Dataset):
         self.augment = augment
         self.lang_num_max = lang_num_max
         self.should_shuffle = shuffle
-
+        self.use_bert = use_bert
+        if use_bert:
+            self.bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         # from 3detr:
         self.random_cuboid_augmentor = RandomCuboid(
             min_points=random_cuboid_min_points)
@@ -162,6 +166,20 @@ class ScannetReferenceDataset(Dataset):
             main_lang_len_list.append(main_lang_len)
             first_obj_list.append(first_obj)
             unk_list.append(unk)
+
+        #TODO: fix the bert for new dataset logic
+        if self.use_bert:
+            lang_bert = self.lang_bert[scene_id][str(object_id)][ann_id]
+            lang_len_bert = lang_bert['input_ids'].shape[1]
+            lang_len_bert = lang_len_bert if lang_len_bert <= CONF.TRAIN.MAX_DES_LEN else CONF.TRAIN.MAX_DES_LEN
+            bert_input_ids = np.zeros(CONF.TRAIN.MAX_DES_LEN)
+            bert_token_type_ids = np.zeros(CONF.TRAIN.MAX_DES_LEN)
+            bert_attention_mask = np.zeros(CONF.TRAIN.MAX_DES_LEN)
+            bert_input_ids[:lang_len_bert] = lang_bert['input_ids'][0][:lang_len_bert]
+            bert_token_type_ids[:lang_len_bert] = lang_bert['token_type_ids'][0][:lang_len_bert]
+            bert_attention_mask[:lang_len_bert] = lang_bert['attention_mask'][0][:lang_len_bert]
+        # lang_len = len(self.scanrefer[idx]["token"]) + 2
+        # lang_len = lang_len if lang_len <= CONF.TRAIN.MAX_DES_LEN + 2 else CONF.TRAIN.MAX_DES_LEN + 2
 
 
         # get pc
@@ -427,6 +445,7 @@ class ScannetReferenceDataset(Dataset):
         # from scanrefer
         data_dict["point_clouds"] = point_cloud.astype(
             np.float32)  # point cloud data including features
+
         data_dict["unk"] = unk.astype(np.float32)
         data_dict["lang_feat_list"] = np.array(lang_feat_list).astype(np.float32)  # language feature vectors
         data_dict["lang_num"] = np.array(lang_num).astype(np.int64)
@@ -437,6 +456,12 @@ class ScannetReferenceDataset(Dataset):
             np.int64)  # length of each main description
         data_dict["first_obj_list"] = np.array(first_obj_list).astype(np.int64)
         data_dict["unk_list"] = np.array(unk_list).astype(np.float32)
+
+        if self.use_bert:
+            data_dict["bert_input_ids"] = bert_input_ids.astype(np.int64)
+            data_dict["bert_token_type_ids"] = bert_token_type_ids.astype(np.int64)
+            data_dict["bert_attention_mask"] = bert_attention_mask.astype(np.int64)
+
         data_dict["center_label"] = target_bboxes.astype(
             np.float32)[:, 0:3]  # (MAX_NUM_OBJ, 3) for GT box center XYZ
         # (MAX_NUM_OBJ,) with int values in 0,...,NUM_HEADING_BIN-1
@@ -561,6 +586,7 @@ class ScannetReferenceDataset(Dataset):
             glove = pickle.load(f)
 
         lang = {}
+        lang_bert = {}
         lang_main = {}
         scene_id_pre = ""
         i = 0
@@ -572,14 +598,20 @@ class ScannetReferenceDataset(Dataset):
 
             if scene_id not in lang:
                 lang[scene_id] = {}
+                if self.use_bert:
+                    lang_bert[scene_id] = {}
                 lang_main[scene_id] = {}
 
             if object_id not in lang[scene_id]:
                 lang[scene_id][object_id] = {}
+                if self.use_bert:
+                    lang_bert[scene_id][object_id] = {}
                 lang_main[scene_id][object_id] = {}
 
             if ann_id not in lang[scene_id][object_id]:
                 lang[scene_id][object_id][ann_id] = {}
+                if self.use_bert:
+                    lang_bert[scene_id][object_id][ann_id] = {}
                 lang_main[scene_id][object_id][ann_id] = {}
                 lang_main[scene_id][object_id][ann_id]["main"] = {}
                 lang_main[scene_id][object_id][ann_id]["len"] = 0
@@ -627,6 +659,10 @@ class ScannetReferenceDataset(Dataset):
 
             # store
             lang[scene_id][object_id][ann_id] = embeddings
+            
+            if self.use_bert:
+                sentence = ' '.join(tokens)
+                lang_bert[scene_id][object_id][ann_id] = self.bert_tokenizer(sentence, return_tensors='pt')
             lang_main[scene_id][object_id][ann_id]["main"] = main_embeddings
             if scene_id_pre == scene_id:
                 i += 1
@@ -634,7 +670,7 @@ class ScannetReferenceDataset(Dataset):
                 scene_id_pre = scene_id
                 i = 0
 
-        return lang, lang_main
+        return lang, lang_main, lang_bert
 
     def _load_data(self):
         print("loading data...")
@@ -674,7 +710,7 @@ class ScannetReferenceDataset(Dataset):
         self.raw2label = self._get_raw2label()
         self.unique_multiple_lookup = self._get_unique_multiple_lookup()
 
-        self.lang, self.lang_main = self._tranform_des()
+        self.lang, self.lang_main, self.lang_bert = self._tranform_des()
 
     def _translate(self, point_set, bbox):
         # unpack

@@ -11,7 +11,7 @@ from functools import partial
 from models.backbone_module import Pointnet2Backbone
 from models.voting_module import VotingModule
 from models.proposal_module import ProposalModule
-from models.lang_module import LangModule
+from models.lang_module import LangModule, LangModuleAttention, LangModuleBert, LangModuleTransEncoder
 from models.match_module import MatchModule
 from models._3dvg_match_module import MatchModule as dvg_matchmodule
 from _3detr.models import build_model
@@ -28,8 +28,7 @@ class RefNet(nn.Module):
         super().__init__()
         self.detr, _ = build_model(args, dataset_config)
 
-        # FIXME-WINDOWS: set the weight_path to the correct path to 3detr-m (masked) pretrained weights
-        # weight_path = "/home/shichenhu/3dvg-transformer/weights/scannet_ep1080_epoch_600/checkpoint_best.pth"
+        # FIXME: set the weight_path to the correct path to 3detr-m (masked) pretrained weights
         weight_path = "/home/barry/dev/3dvg-3detr/outputs/experiment_6/checkpoint_best.pth"
         if os.path.isfile(weight_path):
             print("Loading pretrained 3detr weights")
@@ -58,6 +57,7 @@ class RefNet(nn.Module):
         self.use_lang_classifier = use_lang_classifier
         self.use_bidir = use_bidir      
         self.no_reference = no_reference
+        self.use_att_mask = args.use_att_mask
         mlp_func_feature = partial(
             GenericMLP,
             use_conv=True,
@@ -86,13 +86,45 @@ class RefNet(nn.Module):
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
             # (including attention and language classification)
-            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128, lang_num_max=args.lang_num_max)
+            # to compare strings, use "==" instead of "is" 
+            # The "==" operator compares the value or equality of two objects, 
+            # whereas the Python "is" operator checks whether two variables point to the same object in memory.
+            if args.lang_type == "gru":
+                self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
+
+            elif args.lang_type == "attention":
+                self.lang = LangModuleAttention(
+                    num_class, 
+                    use_lang_classifier,
+                    embed_dim=300,
+                    num_head=4,
+                    dropout=0.1,
+                    batch_first=True
+                )
+            elif args.lang_type == "transformer_encoder":
+                self.lang = LangModuleTransEncoder(
+                    num_class, 
+                    use_lang_classifier,
+                    embed_dim=300,
+                    num_head=4,
+                    dropout=0.1,
+                    batch_first=True
+                )
+            elif args.lang_type == "bert":
+                self.lang = LangModuleBert(
+                    num_class, 
+                    use_lang_classifier,
+                    embed_dim=768,
+                    num_head=4,
+                    dropout=0.1,
+                    batch_first=True
+                )
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
             use_3dvg = True
             if use_3dvg:
-                self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
+                self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, use_att_mask=self.use_att_mask)
             else:
                 self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
             self.sequential = nn.ModuleList([self.feature_head, self.lang, self.match])
@@ -139,7 +171,7 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- LANGUAGE ENCODING ---------
-            #data_dict = self.lang(data_dict)
+            self.lang(data_dict)
             data_dict = self.sequential[1](data_dict)
 
             #######################################
