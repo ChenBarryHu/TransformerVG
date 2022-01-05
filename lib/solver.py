@@ -497,7 +497,7 @@ class Solver():
                     np.mean([v for v in self.log[phase][item]]),
                     self._global_iter_id
                 )
-        wandb.log(wandb_dict)
+        # wandb.log(wandb_dict)
         
 
     def _finish(self, epoch_id):
