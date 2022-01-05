@@ -40,7 +40,7 @@ class LangModule(nn.Module):
         for i in range(self.lang_num_max):
             word_embs = data_dict["lang_feat_list"][:, i, :, :]
             lang_feat = pack_padded_sequence(word_embs,
-                                             data_dict["lang_len_list"][:, i].cpu(),
+                                             data_dict["lang_len_list"][:, i],
                                              batch_first=True, enforce_sorted=False)
 
             # encode description
@@ -64,11 +64,11 @@ class LangModule(nn.Module):
                     lang_scores_cat = torch.cat((lang_scores_cat, lang_scores_list[i+1].unsqueeze(1)), dim=1)
 
         # store the encoded language features
-        data_dict["lang_emb"] = lang_last_cat # B, lang_num_max, hidden_size
+        data_dict["lang_emb"] = lang_last_cat.to(device="cuda") # B, lang_num_max, hidden_size
 
         # classify
         if self.use_lang_classifier:
-            data_dict["lang_scores"] = lang_scores_cat
+            data_dict["lang_scores"] = lang_scores_cat.to(device="cuda")
 
 
         return data_dict
