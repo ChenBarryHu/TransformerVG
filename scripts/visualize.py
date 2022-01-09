@@ -27,7 +27,7 @@ from lib.loss_helper import get_loss
 from lib.eval_helper import get_eval
 from lib.config import CONF
 
-# data
+# FIXME: point to the scannet scan files
 SCANNET_ROOT = "/home/barry/dev/ScanRefer/data/scannet/scans" # TODO point this to your scannet data
 SCANNET_MESH = os.path.join(SCANNET_ROOT, "{}/{}_vh_clean_2.ply") # scene_id, scene_id 
 SCANNET_META = os.path.join(SCANNET_ROOT, "{}/{}.txt") # scene_id, scene_id 
@@ -72,7 +72,7 @@ def get_model(args, dataset_config):
     ).cuda()
 
     path = os.path.join(CONF.PATH.OUTPUT, args.folder, "model.pth")
-    print("loading pretrained model from")
+    print(f"loading pretrained model from {path}")
     model.load_state_dict(torch.load(path), strict=False)
     model.eval()
 
@@ -325,8 +325,6 @@ def align_mesh(scene_id):
     pts[:, :3] = vertices[:, :3]
     pts = np.dot(pts, axis_align_matrix.T)
     vertices[:, :3] = pts[:, :3]
-    # np.save(scene_dump_dir+'/pts.npy', pts)
-    # np.save(scene_dump_dir+'/axis_align_matrix.npy', axis_align_matrix)
     mesh = export_mesh(vertices, faces)
 
     return mesh
@@ -436,18 +434,6 @@ def dump_results(args, scanrefer, data, config):
 
 def visualize(args):
     # init training dataset
-    # print("generating scene...")
-    # dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis")
-    # os.makedirs(dump_dir, exist_ok=True)
-    # scene_id = args.scene_id
-    # scene_dump_dir = os.path.join(dump_dir, scene_id)
-    # if not os.path.exists(scene_dump_dir):
-    #     os.mkdir(scene_dump_dir)
-    # mesh = align_mesh(scene_id, scene_dump_dir)
-    # print(f"mesh output to {os.path.join(scene_dump_dir, 'mesh.ply')}")
-    # mesh.write(os.path.join(scene_dump_dir, 'mesh.ply'))
-
-
     print("preparing data...")
     scanrefer, scene_list = get_scanrefer(args)
 
