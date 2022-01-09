@@ -8,7 +8,6 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
-import wandb
 from torch.utils.data import DataLoader
 from datetime import datetime
 from copy import deepcopy
@@ -25,10 +24,6 @@ from _3detr.optimizer import *
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
 SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))
 
-# setup wandb
-wandb.init(project="3dvg-transformer", entity="tum-3dvg")
-wandb.run.name = "l8"
-wandb.run.save()
 
 # constants
 DC = ScannetDatasetConfig()
@@ -304,7 +299,7 @@ if __name__ == "__main__":
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
     # FIXME: set the right batch_size
-    parser.add_argument("--batch_size", type=int, help="batch size", default=14)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=12)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
@@ -455,6 +450,5 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = False
     np.random.seed(args.seed)
 
-    wandb.config.update(args)
     train(args)
     

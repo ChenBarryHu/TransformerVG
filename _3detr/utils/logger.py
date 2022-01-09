@@ -1,7 +1,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 
 import torch
-import wandb
 try:
     from tensorboardX import SummaryWriter
 except ImportError:
@@ -29,4 +28,3 @@ class Logger(object):
             if prefix is not None:
                 k = prefix + k
             self.writer.add_scalar(k, v, step)
-            wandb.log({k:v})
