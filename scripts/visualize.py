@@ -408,8 +408,6 @@ def dump_results(args, scanrefer, data, config):
         gt_obb[3:6] = gt_box_sizes[i, gt_ref_idx]
         gt_obb[6] = gt_box_angles[i, gt_ref_idx]
         gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
-        # gt_bbox1 = get_3d_box(gt_box_sizes[i, gt_ref_idx], gt_box_angles[i, gt_ref_idx], gt_box_centers[i, gt_ref_idx])
-        # gt_bbox2 = data['gt_box_corners'][i][gt_ref_idx].cpu().numpy()
         if not os.path.exists(object_dump_dir):
             write_bbox(gt_obb, 0, os.path.join(scene_dump_dir, 'gt_{}_{}.ply'.format(object_id, object_name)))
         

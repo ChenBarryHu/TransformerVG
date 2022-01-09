@@ -152,7 +152,6 @@ class MatchModule(nn.Module):
             data_dict["attention_mask"] = None
 
 
-        # data_dict["attention_mask"] = None
         # print("features", features.shape, lang_fea.shape)
 
         feature1 = self.cross_attn[0](feature1, lang_fea, lang_fea, data_dict["attention_mask"])
