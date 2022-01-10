@@ -7,7 +7,7 @@ import random
 
 
 class MatchModule(nn.Module):
-    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128, lang_num_size=300, det_channel=128, head=4, depth=2, attention=False): #det_channel was 288*4
+    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128, lang_num_size=300, det_channel=128, head=4, depth=2, use_att_mask=False): #det_channel was 288*4
         super().__init__()
         self.use_box_embedding = False
         self.use_dist_weight_matrix = True
@@ -16,7 +16,7 @@ class MatchModule(nn.Module):
         self.lang_size = lang_size
         self.hidden_size = hidden_size
         self.depth = depth - 1
-        self.attention = attention
+        self.use_att_mask = use_att_mask
         self.features_concat = nn.Sequential(
             nn.Conv1d(det_channel, hidden_size, 1), #128x128x1
             nn.BatchNorm1d(hidden_size),
@@ -146,12 +146,12 @@ class MatchModule(nn.Module):
             dist_weights = dist_weights[:, None, :, :, :].repeat(1, 1, 1, 1, 1).reshape(batch_size*1, dist_weights.shape[1], num_proposal, num_proposal)
 
         lang_fea = data_dict["lang_emb"]
-        if self.attention is False:
+        if self.use_att_mask is False:
             lang_fea = lang_fea.unsqueeze(1).repeat(1, num_proposal, 1)
             lang_fea = lang_fea.repeat(1, 1, 1)
+            data_dict["attention_mask"] = None
 
 
-        data_dict["attention_mask"] = None
         # print("features", features.shape, lang_fea.shape)
 
         feature1 = self.cross_attn[0](feature1, lang_fea, lang_fea, data_dict["attention_mask"])

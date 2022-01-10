@@ -47,3 +47,6 @@ upload/
 
 # vscode
 .vscode/
+
+# wandb
+wandb/

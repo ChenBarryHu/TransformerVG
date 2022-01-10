@@ -8,7 +8,6 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
-
 from torch.utils.data import DataLoader
 from datetime import datetime
 from copy import deepcopy
@@ -21,9 +20,10 @@ from lib.config import CONF
 from models.refnet import RefNet
 from _3detr.optimizer import *
 
-# FIXME: load the json files for train and val set
+# load the json files for train and val set
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
 SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))
+
 
 # constants
 DC = ScannetDatasetConfig()
@@ -40,8 +40,8 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_multiview=args.use_multiview,
         use_bert=(args.lang_type=="bert")
     )
-    # FIXME-WINDOWS: change the num_worker based on the machine type
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
+    # FIXME: change the num_worker based on the machine type
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.dataset_num_workers)
 
     return dataset, dataloader
 
@@ -69,9 +69,9 @@ def get_model(args, dataset_config):
 
         pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model.pth") # used model.pth as it stores the best model
         model.load_state_dict(torch.load(pretrained_path), strict=False)
-        # FIXME: uncomment to  unfreeze the last layer of encoder
-        for param in model.detr.decoder.layers[7].parameters():
-            param.requires_grad = True
+        # uncomment to  unfreeze the last layer of encoder
+        # for param in model.detr.decoder.layers[7].parameters():
+        #     param.requires_grad = True
 
         if args.no_detection:
             # freeze pointnet++ backbone
@@ -298,8 +298,8 @@ if __name__ == "__main__":
     #################################### [start] scanrefer arguments #######################################
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    # FIXME-WINDOWS: set the right batch_size
-    parser.add_argument("--batch_size", type=int, help="batch size", default=12)
+    # FIXME: set the right batch_size
+    parser.add_argument("--batch_size", required=True, type=int, help="batch size", default=12)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
@@ -315,8 +315,8 @@ if __name__ == "__main__":
     parser.add_argument("--no_detection", action="store_true", help="Do NOT train the detection module.")
     parser.add_argument("--no_reference", action="store_true", help="Do NOT train the localization module.")
     parser.add_argument("--use_color", default=False, action="store_true", help="Use RGB color in input.")
-    parser.add_argument("--use_normal", default=True, action="store_true", help="Use RGB color in input.")
-    parser.add_argument("--use_height", default=True, action="store_true", help="Use RGB color in input.")
+    parser.add_argument("--use_normal", default=True, action="store_true", help="Use normal in input.")
+    parser.add_argument("--use_height", default=True, action="store_true", help="Use height in input.")
     parser.add_argument("--use_multiview", default=True, action="store_true", help="Use multiview images.")
     parser.add_argument("--use_bidir", action="store_true", help="Use bi-directional GRU.")
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
@@ -336,6 +336,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--lang_type", default="bert", choices=["gru", "attention", "transformer_encoder", "bert"]
+    )
+    parser.add_argument(
+        "--use_att_mask", action="store_true", default=True, help="Use the attention mask in the matching module."
     )
 
     ##### Model #####
@@ -412,7 +415,7 @@ if __name__ == "__main__":
         help="Root directory containing the dataset files. \
               If None, default values from scannet.py/sunrgbd.py are used",
     )
-    parser.add_argument("--dataset_num_workers", default=0, type=int)
+    parser.add_argument("--dataset_num_workers", required=True, default=6, type=int, help="number of workers for dataloader") # set to required
     # parser.add_argument("--batchsize_per_gpu", default=8, type=int) comment out since we can use "batchsize" arg field from scanrefer above
 
     ##### Training #####

@@ -12,7 +12,6 @@ from tqdm import tqdm
 from tensorboardX import SummaryWriter
 from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
-
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from lib.config import CONF
 from lib.loss_helper import get_loss
@@ -492,6 +491,7 @@ class Solver():
                     np.mean([v for v in self.log[phase][item]]),
                     self._global_iter_id
                 )
+        
 
     def _finish(self, epoch_id):
         # print best

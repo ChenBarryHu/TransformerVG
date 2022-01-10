@@ -468,6 +468,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--lang_type", default="bert", choices=["gru", "attention", "transformer_encoder", "bert"]
     )
+    parser.add_argument(
+        "--use_att_mask", action="store_true", default=True, help="Use the attention mask in the matching module."
+    )
 
     ##### Model #####
     parser.add_argument(

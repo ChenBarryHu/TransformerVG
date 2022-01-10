@@ -1,7 +1,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 
 import torch
-
 try:
     from tensorboardX import SummaryWriter
 except ImportError:

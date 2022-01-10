@@ -59,6 +59,7 @@ class LangModuleBert(nn.Module):
         token_type_ids = data_dict["bert_token_type_ids"]
         attention_mask = data_dict["bert_attention_mask"]
         output = self.bert(input_ids, token_type_ids, attention_mask)
+        data_dict["attention_mask"] = (attention_mask == 0)
         data_dict['lang_emb'] = self.lang_projection(output[0])
         global_lang_feature = output[1]
         global_lang_feature = global_lang_feature.squeeze(-1)
@@ -125,6 +126,7 @@ class LangModuleTransEncoder(nn.Module):
         word_embedding_with_pos = self.pe(word_embedding)
         # word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
         key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
+        data_dict["attention_mask"] = key_padding_mask
         embedding = self.transformer_encoder(src=word_embedding_with_pos, src_key_padding_mask=key_padding_mask)
         embedding = self.transformer_encoder(src=word_embedding_with_pos)
         data_dict["lang_emb"] = embedding.permute(1,0,2)
@@ -200,6 +202,7 @@ class LangModuleAttention(nn.Module):
         word_embedding_with_pos = self.pe(word_embedding)
         word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
         key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
+        data_dict["attention_mask"] = key_padding_mask
         embedding = self.self_attention(word_embedding_with_pos, word_embedding_with_pos, word_embedding_with_pos, key_padding_mask=key_padding_mask)
         if self.use_fc:
             data_dict["lang_emb"] = self.fc(embedding[0])
@@ -218,6 +221,7 @@ class LangModuleAttention(nn.Module):
         
 
 class LangModule(nn.Module):
+    """The original GRU lang module"""
     def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False, 
         emb_size=300, hidden_size=256):
         super().__init__() 
@@ -241,6 +245,23 @@ class LangModule(nn.Module):
                 nn.Dropout()
             )
 
+    def lang_len_to_mask(self, lang_len, max_len=126, dtype=torch.bool):
+        """ Create key padding mask for lang features' self-attention.
+        lang_len: shape: (Batch_size)
+        max_len: maximum number of words in a description sentence.
+        dtype: data type of the output mask, default: bool. 
+
+        output: key_padding_mask with shape: (Batch_size, max_len) dtype:torch.bool.
+                For key_padding_mask, "True" value indicates "do not attend".
+        """
+        assert len(lang_len.shape) == 1, 'lang_len shape should be 1 dimensional.'
+        max_len = max_len or lang_len.max().item()
+        mask = torch.arange(max_len, device=lang_len.device,
+                            dtype=lang_len.dtype).expand(len(lang_len), max_len) >= lang_len.unsqueeze(1)
+        if dtype is not None:
+            mask = torch.as_tensor(mask, dtype=dtype, device=lang_len.device)
+        return mask
+
 
     def forward(self, data_dict):
         """
@@ -249,17 +270,19 @@ class LangModule(nn.Module):
 
         word_embs = data_dict["lang_feat"]
         lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"].cpu(), batch_first=True, enforce_sorted=False)
-    
+        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
+        data_dict["attention_mask"] = key_padding_mask
         # encode description
-        _, lang_last = self.gru(lang_feat)
+        lang_intermediate, lang_last = self.gru(word_embs) # lang_feat
         lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1) # batch_size, hidden_size * num_dir
 
         # store the encoded language features
-        data_dict["lang_emb"] = lang_last # B, hidden_size
+
+        data_dict["lang_emb"] = lang_intermediate # data_dict["lang_emb"] = lang_last # B, hidden_size
         
         # classify
         if self.use_lang_classifier:
-            data_dict["lang_scores"] = self.lang_cls(data_dict["lang_emb"])
+            data_dict["lang_scores"] = self.lang_cls(lang_last) #data_dict["lang_emb"]
 
         return data_dict
 

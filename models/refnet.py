@@ -28,8 +28,7 @@ class RefNet(nn.Module):
         super().__init__()
         self.detr, _ = build_model(args, dataset_config)
 
-        # FIXME-WINDOWS: set the weight_path to the correct path to 3detr-m (masked) pretrained weights
-        # weight_path = "/home/shichenhu/3dvg-transformer/weights/scannet_ep1080_epoch_600/checkpoint_best.pth"
+        # FIXME: set the weight_path to the correct path to 3detr-m (masked) pretrained weights
         weight_path = "/home/barry/dev/3dvg-3detr/outputs/experiment_6/checkpoint_best.pth"
         if os.path.isfile(weight_path):
             print("Loading pretrained 3detr weights")
@@ -58,6 +57,7 @@ class RefNet(nn.Module):
         self.use_lang_classifier = use_lang_classifier
         self.use_bidir = use_bidir      
         self.no_reference = no_reference
+        self.use_att_mask = args.use_att_mask
         mlp_func_feature = partial(
             GenericMLP,
             use_conv=True,
@@ -126,10 +126,7 @@ class RefNet(nn.Module):
             # Match the generated proposals and select the most confident ones
             use_3dvg = True
             if use_3dvg:
-                if args.lang_type in ["attention", "transformer_encoder", "bert"]:
-                    self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, attention=True)
-                else:
-                    self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, attention=False)
+                self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, use_att_mask=self.use_att_mask)
             else:
                 self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
             self.sequential = nn.ModuleList([self.feature_head, self.lang, self.match])
