@@ -88,9 +88,8 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_multiview=args.use_multiview,
         use_bert=(args.lang_type=="bert")
     )
-
     # FIXME: change the num_worker based on the machine type
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.dataset_num_workers)
     return dataset, dataloader
 
 def get_model(args, dataset_config):
@@ -369,8 +368,8 @@ if __name__ == "__main__":
     parser.add_argument("--no_detection", action="store_true", help="Do NOT train the detection module.")
     parser.add_argument("--no_reference", action="store_true", help="Do NOT train the localization module.")
     parser.add_argument("--use_color", default=False, action="store_true", help="Use RGB color in input.")
-    parser.add_argument("--use_normal", default=True, action="store_true", help="Use RGB color in input.")
-    parser.add_argument("--use_height", default=True, action="store_true", help="Use RGB color in input.")
+    parser.add_argument("--use_normal", default=True, action="store_true", help="Use normal in input.")
+    parser.add_argument("--use_height", default=True, action="store_true", help="Use height in input.")
     parser.add_argument("--use_multiview", default=True, action="store_true", help="Use multiview images.")
     parser.add_argument("--use_bidir", action="store_true", help="Use bi-directional GRU.")
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
@@ -471,7 +470,7 @@ if __name__ == "__main__":
         help="Root directory containing the dataset files. \
               If None, default values from scannet.py/sunrgbd.py are used",
     )
-    parser.add_argument("--dataset_num_workers", default=0, type=int)
+    parser.add_argument("--dataset_num_workers", required=True, default=6, type=int, help="number of workers for dataloader") # set to required
     # parser.add_argument("--batchsize_per_gpu", default=8, type=int) comment out since we can use "batchsize" arg field from scanrefer above
 
     ##### Training #####
