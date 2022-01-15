@@ -167,7 +167,7 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
 
     # lang
     if reference and use_lang_classifier:
-        data_dict["lang_acc"] = (torch.argmax(data_dict['lang_scores'], 2) == data_dict["object_cat_list"]).float().mean()
+        data_dict["lang_acc"] = (torch.argmax(data_dict['lang_scores'].view(batch_size*lang_num_max, -1), 1) == data_dict["object_cat_list"].flatten()).float().mean()
     else:
         data_dict["lang_acc"] = torch.zeros(1)[0].cuda()
 

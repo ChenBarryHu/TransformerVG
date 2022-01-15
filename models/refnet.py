@@ -29,7 +29,7 @@ class RefNet(nn.Module):
         self.detr, _ = build_model(args, dataset_config)
 
         # FIXME: set the weight_path to the correct path to 3detr-m (masked) pretrained weights
-        weight_path = "/home/barry/dev/3dvg-3detr/outputs/experiment_6/checkpoint_best.pth"
+        weight_path = "E:/Daten/ADL4CV/Pretrained_3detr/experiment_6/checkpoint_best.pth"
         if os.path.isfile(weight_path):
             print("Loading pretrained 3detr weights")
             weights = torch.load(weight_path)
@@ -68,7 +68,7 @@ class RefNet(nn.Module):
 
 
 
-        self.feature_head = mlp_func_feature(output_dim=128)
+        feature_head = mlp_func_feature(output_dim=128)
 
 
         # --------- PROPOSAL GENERATION ---------
@@ -81,7 +81,7 @@ class RefNet(nn.Module):
         # Vote aggregation and object proposal
         # self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
-        self.sequential = nn.ModuleList([self.feature_head])
+        self.sequential = nn.ModuleList([feature_head])
         if not no_reference:
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
@@ -90,10 +90,10 @@ class RefNet(nn.Module):
             # The "==" operator compares the value or equality of two objects, 
             # whereas the Python "is" operator checks whether two variables point to the same object in memory.
             if args.lang_type == "gru":
-                self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
+                lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
 
             elif args.lang_type == "attention":
-                self.lang = LangModuleAttention(
+                lang = LangModuleAttention(
                     num_class, 
                     use_lang_classifier,
                     embed_dim=300,
@@ -102,7 +102,7 @@ class RefNet(nn.Module):
                     batch_first=True
                 )
             elif args.lang_type == "transformer_encoder":
-                self.lang = LangModuleTransEncoder(
+                lang = LangModuleTransEncoder(
                     num_class, 
                     use_lang_classifier,
                     embed_dim=300,
@@ -111,7 +111,7 @@ class RefNet(nn.Module):
                     batch_first=True
                 )
             elif args.lang_type == "bert":
-                self.lang = LangModuleBert(
+                lang = LangModuleBert(
                     num_class, 
                     use_lang_classifier,
                     embed_dim=768,
@@ -124,10 +124,10 @@ class RefNet(nn.Module):
             # Match the generated proposals and select the most confident ones
             use_3dvg = True
             if use_3dvg:
-                self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, use_att_mask=self.use_att_mask)
+                match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, use_att_mask=self.use_att_mask)
             else:
-                self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
-            self.sequential = nn.ModuleList([self.feature_head, self.lang, self.match])
+                match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
+            self.sequential = nn.ModuleList([feature_head, lang, match])
 
     def forward(self, data_dict):
         """ Forward pass of the network
@@ -171,7 +171,7 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- LANGUAGE ENCODING ---------
-            self.lang(data_dict)
+            #self.lang(data_dict)
             data_dict = self.sequential[1](data_dict)
 
             #######################################

@@ -171,13 +171,12 @@ def compute_reference_loss(data_dict, config):
     lang_num_max = data_dict["lang_len_list"].shape[1]
     labels = np.zeros((batch_size, num_proposals))
 
-    box_corners = data_dict["box_corners"][:, None, :, :, :].repeat(1, data_dict["lang_len_list"].shape[1], 1, 1,
+    box_corners = data_dict["box_corners"][:, None, :, :, :].repeat(1, lang_num_max, 1, 1,
                                                                     1).view(batch_size, num_proposals, 8, 3)
     box_corners_3detr = box_corners.detach().cpu().numpy()
 
     dim_1_gt_box_corners = data_dict["gt_box_corners"].shape[1]
-    gt_box_corners = data_dict['gt_box_corners'][:, None, :, :, :].repeat(1,
-                                                                          data_dict["lang_len_list"].shape[1], 1, 1, 1)
+    gt_box_corners = data_dict['gt_box_corners'][:, None, :, :, :].repeat(1,lang_num_max, 1, 1, 1)
     gt_box_corners = gt_box_corners.view(batch_size, dim_1_gt_box_corners, 8, 3)
 
     for i in range(batch_size):
@@ -218,13 +217,14 @@ def compute_lang_classification_loss(data_dict):
     criterion = torch.nn.CrossEntropyLoss()
     # We can only calculate the loss from actual description and not the copies of these descriptions.
     # Check how many actual descriptions we have per sample.
-    batch_size = data_dict["lang_scores"].shape[0]
-    loss = 0
-    for i in range(batch_size):
-        num_descriptions = data_dict["lang_num"][i]
-        loss += criterion(data_dict["lang_scores"][i, :num_descriptions, :],
-                          data_dict["object_cat_list"][i, :num_descriptions])
-    loss = loss/batch_size
+    batch_size, lang_num_max, num_classes = data_dict["lang_scores"].shape
+    #loss = 0
+    #for i in range(batch_size):
+    #    num_descriptions = data_dict["lang_num"][i]
+    #    loss += criterion(data_dict["lang_scores"][i, :num_descriptions, :],
+    #                      data_dict["object_cat_list"][i, :num_descriptions])
+    #loss = loss/batch_size
+    loss = criterion(data_dict["lang_scores"].reshape(-1, num_classes), data_dict["object_cat_list"].flatten())
     #Bxlang_num_maxxnum_classes and Bxlang_num_max
     return loss
 

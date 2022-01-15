@@ -8,7 +8,7 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
-import wandb
+#import wandb
 from torch.utils.data import DataLoader
 from datetime import datetime
 from copy import deepcopy
@@ -71,7 +71,11 @@ def split_scene_new(scanrefer_data, lang_num_max=32, should_shuffle=False):
     return scanrefer_train_new
 
 def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
-    scanrefer_new = split_scene_new(scanrefer_data=scanrefer[split], lang_num_max=args.lang_num_max)
+    #Use description pairing only for training split and use only one description for validation.
+    if split == "train":
+        scanrefer_new = split_scene_new(scanrefer_data=scanrefer[split], lang_num_max=args.lang_num_max)
+    else:
+        scanrefer_new = split_scene_new(scanrefer_data=scanrefer[split], lang_num_max=1)
     dataset = ScannetReferenceDataset(
         scanrefer=scanrefer[split], 
         scanrefer_all_scene=all_scene_list,
@@ -86,7 +90,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
     )
 
     # FIXME: change the num_worker based on the machine type
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=6)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
     return dataset, dataloader
 
 def get_model(args, dataset_config):
@@ -182,14 +186,17 @@ def get_solver(args, dataloader):
                 {"params": params_with_decay, "weight_decay": args.weight_decay},
             ]
         else:
+            # TODO: For end-to-end training this needs to be changed to what 3DETR is using.
+            # We changed it to this for a pre-trained 3DETR.
             param_groups = [
-                {"params": params_with_decay, "weight_decay": args.weight_decay},
+                {"params": params_with_decay, "lr": 1e-6, "weight_decay": args.weight_decay},
+                {"params": params_without_decay, "lr": 1e-6, "weight_decay": 0.0}
             ]
         # LR and WD hyperparameters taken over from the 3DVG paper.
         # Parameters Detection Head
         param_groups.append(
             {"params": model.sequential[0].parameters(),
-             "lr": 2e-3, "weight_decay": 1e-5}
+             "lr": 1e-3, "weight_decay": 1e-5}
         )
         # Parameters Lang Module
         param_groups.append(
@@ -201,7 +208,10 @@ def get_solver(args, dataloader):
             {"params": model.sequential[2].parameters(),
              "lr": 5e-4, "weight_decay": 1e-5}
         )
-        optimizer = optim.Adam(param_groups, lr=args.lr)
+        if args.optimizer == "AdamW":
+            optimizer = optim.AdamW(param_groups, lr=args.lr) #Changed to AdamW
+        elif args.optimizer == "Adam":
+            optimizer = optim.Adam(param_groups, lr=args.lr)
         optimizers.append(optimizer)
 
     if args.use_checkpoint:
@@ -343,7 +353,7 @@ if __name__ == "__main__":
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
     # FIXME: set the right batch_size
-    parser.add_argument("--batch_size", type=int, help="batch size", default=10)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=8)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
@@ -366,7 +376,8 @@ if __name__ == "__main__":
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")
     parser.add_argument("--use_two_optim", action="store_true", help="Use 2 separate optimizers for detection and reference part.")
-    parser.add_argument("--lang_num_max", type=int, default=32, help="Number of descriptions that are used per one scene.")
+    parser.add_argument("--lang_num_max", type=int, default=8, help="Number of descriptions that are used per one scene.")
+    parser.add_argument("--optimizer", default="AdamW", choices=["AdamW", "Adam"], help="Switch between AdamW and Adam.")
 
     #################################### [start] 3detr arguments #######################################
     parser.add_argument("--base_lr", default=5e-4, type=float)
