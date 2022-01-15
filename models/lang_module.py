@@ -5,7 +5,7 @@ import torch.nn as nn
 import math
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from transformers import BertModel
+#from transformers import BertModel
 
 
 class PositionalEmbedding(nn.Module):
@@ -121,11 +121,12 @@ class LangModuleTransEncoder(nn.Module):
         return mask
     
     def forward(self, data_dict):
-        word_embedding = self.lang_projection(data_dict["lang_feat"]) # (batch_size, MAX_DES_LEN=126)
+        batch_size, scene_num_des, des_max_len, embed_dim = data_dict["lang_feat_list"].shape
+        word_embedding = self.lang_projection(data_dict["lang_feat_list"].view(batch_size*scene_num_des, des_max_len, embed_dim)) # (batch_size, MAX_DES_LEN=126)
         word_embedding = word_embedding.permute(1,0,2)
         word_embedding_with_pos = self.pe(word_embedding)
         # word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
-        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
+        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len_list"].reshape(-1))
         data_dict["attention_mask"] = key_padding_mask
         embedding = self.transformer_encoder(src=word_embedding_with_pos, src_key_padding_mask=key_padding_mask)
         embedding = self.transformer_encoder(src=word_embedding_with_pos)
@@ -197,11 +198,12 @@ class LangModuleAttention(nn.Module):
         return mask
     
     def forward(self, data_dict):
-        word_embedding = self.lang_projection(data_dict["lang_feat"]) # (batch_size, MAX_DES_LEN=126)
+        batch_size, scene_num_des, des_max_len, embed_dim = data_dict["lang_feat_list"].shape
+        word_embedding = self.lang_projection(data_dict["lang_feat_list"].view(batch_size*scene_num_des, des_max_len, embed_dim)) # (batch_size, MAX_DES_LEN=126)
         word_embedding = word_embedding.permute(1,0,2)
         word_embedding_with_pos = self.pe(word_embedding)
         word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
-        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
+        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len_list"].reshape(-1))
         data_dict["attention_mask"] = key_padding_mask
         embedding = self.self_attention(word_embedding_with_pos, word_embedding_with_pos, word_embedding_with_pos, key_padding_mask=key_padding_mask)
         if self.use_fc:

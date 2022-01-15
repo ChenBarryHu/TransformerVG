@@ -23,14 +23,52 @@ from lib.loss_helper import get_loss
 from lib.eval_helper import get_eval
 from models.refnet import RefNet
 from data.scannet.model_util_scannet import ScannetDatasetConfig
+import random
 
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
 SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))
 
+def split_scene_new(scanrefer_data, lang_num_max=1, should_shuffle=False):
+    scanrefer_train_new = []
+    scanrefer_train_new_scene, scanrefer_train_scene = [], []
+    scene_id = ''
+    for data in scanrefer_data:
+        if scene_id != data["scene_id"]:
+            scene_id = data["scene_id"]
+            if len(scanrefer_train_scene) > 0:
+                if should_shuffle:
+                    random.shuffle(scanrefer_train_scene)
+                # print("scanrefer_train_scene", len(scanrefer_train_scene))
+                for new_data in scanrefer_train_scene:
+                    if len(scanrefer_train_new_scene) >= lang_num_max:
+                        scanrefer_train_new.append(scanrefer_train_new_scene)
+                        scanrefer_train_new_scene = []
+                    scanrefer_train_new_scene.append(new_data)
+                if len(scanrefer_train_new_scene) > 0:
+                    scanrefer_train_new.append(scanrefer_train_new_scene)
+                    scanrefer_train_new_scene = []
+                scanrefer_train_scene = []
+        scanrefer_train_scene.append(data)
+    if len(scanrefer_train_scene) > 0:
+        if should_shuffle:
+            random.shuffle(scanrefer_train_scene)
+        # print("scanrefer_train_scene", len(scanrefer_train_scene))
+        for new_data in scanrefer_train_scene:
+            if len(scanrefer_train_new_scene) >= lang_num_max:
+                scanrefer_train_new.append(scanrefer_train_new_scene)
+                scanrefer_train_new_scene = []
+            scanrefer_train_new_scene.append(new_data)
+        if len(scanrefer_train_new_scene) > 0:
+            scanrefer_train_new.append(scanrefer_train_new_scene)
+            scanrefer_train_new_scene = []
+    return scanrefer_train_new
+
 def get_dataloader(args, scanrefer, all_scene_list, split, config):
+    scanrefer_new = split_scene_new(scanrefer_data=scanrefer, lang_num_max=1)
     dataset = ScannetReferenceDataset(
         scanrefer=scanrefer, 
-        scanrefer_all_scene=all_scene_list, 
+        scanrefer_all_scene=all_scene_list,
+        scanrefer_new=scanrefer_new,
         split=split, 
         num_points=args.num_points, 
         use_color=args.use_color, 

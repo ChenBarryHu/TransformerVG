@@ -35,7 +35,7 @@ SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_
 DC = ScannetDatasetConfig()
 
 
-def split_scene_new(scanrefer_data, lang_num_max=32, should_shuffle=False):
+def split_scene_new(scanrefer_data, lang_num_max=8, should_shuffle=False):
     scanrefer_train_new = []
     scanrefer_train_new_scene, scanrefer_train_scene = [], []
     scene_id = ''
