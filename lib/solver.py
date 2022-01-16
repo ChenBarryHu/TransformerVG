@@ -12,6 +12,9 @@ from tqdm import tqdm
 from tensorboardX import SummaryWriter
 from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
+#import wandb
+
+
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from lib.config import CONF
 from lib.loss_helper import get_loss
@@ -100,10 +103,9 @@ class Solver():
 
         # Use a Cosine Learning Rate Schedule as in the 3DVG paper
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=self.optimizer,
-                                                                    T_max=len(self.dataloader["train"]) * args.epoch,
-                                                                    eta_min=1e-6)
+                                                                    T_max=len(self.dataloader["train"]) * args.epoch)
         # Flag for usage of Learning Rate Schedule
-        self.use_scheduler = False
+        self.use_scheduler = True
 
         self.detection = detection
         self.reference = reference
@@ -299,6 +301,9 @@ class Solver():
             # Use of LR scheduler
             if self.use_scheduler:
                 self.scheduler.step()
+            # Keep 3DETR parameter lr at 1e-6 since we use a pretrained model.
+            self.optimizer.param_groups[0]['lr'] = 1e-6
+            self.optimizer.param_groups[1]['lr'] = 1e-6
 
     def _compute_loss(self, data_dict):
         _, data_dict = get_loss(
@@ -491,6 +496,9 @@ class Solver():
                     np.mean([v for v in self.log[phase][item]]),
                     self._global_iter_id
                 )
+
+        # wandb.log(wandb_dict)
+
         
 
     def _finish(self, epoch_id):

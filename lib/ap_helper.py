@@ -55,14 +55,6 @@ def parse_predictions(end_points, config_dict):
             where j = 0, ..., num of valid detections - 1 from sample input i
     """
     pred_center = end_points['center_unnormalized'] # B,num_proposal,3
-    #pred_heading_class = torch.argmax(end_points['heading_scores'], -1) # B,num_proposal
-    #pred_heading_residual = torch.gather(end_points['heading_residuals'], 2,
-        #pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
-    #pred_heading_residual.squeeze_(2)
-    #pred_size_class = torch.argmax(end_points['size_scores'], -1) # B,num_proposal
-    #pred_size_residual = torch.gather(end_points['size_residuals'], 2,
-        #pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-    #pred_size_residual.squeeze_(2)
     pred_sem_cls = torch.argmax(end_points['sem_cls_prob'], -1) # B,num_proposal # -->Exchanged with sem_cls_prob from 3detr
     sem_cls_probs = end_points['sem_cls_prob'].detach().cpu().numpy() # B,num_proposal,10  # -->Exchanged with sem_cls_prob from 3detr
     pred_sem_cls_prob = np.max(sem_cls_probs,-1) # B,num_proposal

@@ -5,7 +5,7 @@ import torch.nn as nn
 import math
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from transformers import BertModel
+#from transformers import BertModel
 
 
 class PositionalEmbedding(nn.Module):
@@ -121,11 +121,12 @@ class LangModuleTransEncoder(nn.Module):
         return mask
     
     def forward(self, data_dict):
-        word_embedding = self.lang_projection(data_dict["lang_feat"]) # (batch_size, MAX_DES_LEN=126)
+        batch_size, scene_num_des, des_max_len, embed_dim = data_dict["lang_feat_list"].shape
+        word_embedding = self.lang_projection(data_dict["lang_feat_list"].view(batch_size*scene_num_des, des_max_len, embed_dim)) # (batch_size, MAX_DES_LEN=126)
         word_embedding = word_embedding.permute(1,0,2)
         word_embedding_with_pos = self.pe(word_embedding)
         # word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
-        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
+        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len_list"].reshape(-1))
         data_dict["attention_mask"] = key_padding_mask
         embedding = self.transformer_encoder(src=word_embedding_with_pos, src_key_padding_mask=key_padding_mask)
         embedding = self.transformer_encoder(src=word_embedding_with_pos)
@@ -197,11 +198,12 @@ class LangModuleAttention(nn.Module):
         return mask
     
     def forward(self, data_dict):
-        word_embedding = self.lang_projection(data_dict["lang_feat"]) # (batch_size, MAX_DES_LEN=126)
+        batch_size, scene_num_des, des_max_len, embed_dim = data_dict["lang_feat_list"].shape
+        word_embedding = self.lang_projection(data_dict["lang_feat_list"].view(batch_size*scene_num_des, des_max_len, embed_dim)) # (batch_size, MAX_DES_LEN=126)
         word_embedding = word_embedding.permute(1,0,2)
         word_embedding_with_pos = self.pe(word_embedding)
         word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
-        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
+        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len_list"].reshape(-1))
         data_dict["attention_mask"] = key_padding_mask
         embedding = self.self_attention(word_embedding_with_pos, word_embedding_with_pos, word_embedding_with_pos, key_padding_mask=key_padding_mask)
         if self.use_fc:
@@ -223,12 +225,13 @@ class LangModuleAttention(nn.Module):
 class LangModule(nn.Module):
     """The original GRU lang module"""
     def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False, 
-        emb_size=300, hidden_size=256):
+        emb_size=300, hidden_size=256, lang_num_max=32):
         super().__init__() 
 
         self.num_text_classes = num_text_classes
         self.use_lang_classifier = use_lang_classifier
         self.use_bidir = use_bidir
+        self.lang_num_max = lang_num_max
 
         self.gru = nn.GRU(
             input_size=emb_size,
@@ -267,22 +270,69 @@ class LangModule(nn.Module):
         """
         encode the input descriptions
         """
+        lang_intermediate_list = []
+        lang_last_list = []
+        lang_scores_list = []
+        batch_size, scene_num_des, des_max_len, embed_dim = data_dict["lang_feat_list"].shape
 
-        word_embs = data_dict["lang_feat"]
-        lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"].cpu(), batch_first=True, enforce_sorted=False)
-        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
-        data_dict["attention_mask"] = key_padding_mask
-        # encode description
-        lang_intermediate, lang_last = self.gru(word_embs) # lang_feat
-        lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1) # batch_size, hidden_size * num_dir
+        key_padding_mask = self.lang_len_to_mask(data_dict["lang_len_list"].reshape(-1))
+        lang_feat_list = data_dict["lang_feat_list"].reshape(-1, des_max_len, embed_dim)
+        lang_intermediate, lang_last = self.gru(lang_feat_list)
+        # lang_intermediate = lang_intermediate.reshape(batch_size, scene_num_des, des_max_len, -1)
+        # lang_last = lang_last.squeeze(0).reshape(batch_size, scene_num_des, -1)
+        lang_scores = self.lang_cls(lang_last.squeeze(0)).reshape(batch_size, scene_num_des, -1)
+        # for i in range(self.lang_num_max):
+        #     word_embs = data_dict["lang_feat_list"][:, i, :, :]
+        #     lang_feat = pack_padded_sequence(word_embs,
+        #                                      data_dict["lang_len_list"][:, i].cpu(),
+        #                                      batch_first=True, enforce_sorted=False)
+
+        #     # encode description
+        #     lang_intermediate, lang_last = self.gru(word_embs)
+        #     lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1) # batch_size, hidden_size * num_dir
+        #     lang_last_list.append(lang_last)
+        #     lang_intermediate_list.append(lang_intermediate)
+        #     if self.use_lang_classifier:
+        #         lang_scores = self.lang_cls(lang_last)
+        #         lang_scores_list.append(lang_scores)
+        # lang_last_cat = torch.empty((lang_last.shape[0], self.lang_num_max, lang_last.shape[1]))
+        # if self.use_lang_classifier:
+        #     lang_scores_cat = torch.empty((lang_scores.shape[0], self.lang_num_max, lang_scores.shape[1]))
+        # for i in range(self.lang_num_max - 1):
+        #     if i == 0:
+        #         lang_last_cat = torch.cat((lang_last_list[i].unsqueeze(1), lang_last_list[i+1].unsqueeze(1)), dim=1)
+        #         if self.use_lang_classifier:
+        #             lang_scores_cat = torch.cat((lang_scores_list[i].unsqueeze(1), lang_scores_list[i+1].unsqueeze(1)), dim=1)
+        #     else:
+        #         lang_last_cat = torch.cat((lang_last_cat, lang_last_list[i+1].unsqueeze(1)), dim=1)
+        #         if self.use_lang_classifier:
+        #             lang_scores_cat = torch.cat((lang_scores_cat, lang_scores_list[i+1].unsqueeze(1)), dim=1)
 
         # store the encoded language features
+        data_dict["lang_emb"] = lang_intermediate.to(device="cuda")
+        data_dict["attention_mask"] = key_padding_mask.to(device="cuda")
+        # data_dict["lang_emb"] = lang_last_cat.to(device="cuda") # B, lang_num_max, hidden_size
 
-        data_dict["lang_emb"] = lang_intermediate # data_dict["lang_emb"] = lang_last # B, hidden_size
-        
         # classify
         if self.use_lang_classifier:
-            data_dict["lang_scores"] = self.lang_cls(lang_last) #data_dict["lang_emb"]
+            data_dict["lang_scores"] = lang_scores.to(device="cuda")
+            # data_dict["lang_scores"] = torch.stack(lang_scores_list, dim=1)
+
+        # word_embs = data_dict["lang_feat"]
+        # lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"].cpu(), batch_first=True, enforce_sorted=False)
+        # key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
+        # data_dict["attention_mask"] = key_padding_mask
+        # # encode description
+        # lang_intermediate, lang_last = self.gru(word_embs) # lang_feat
+        # lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1) # batch_size, hidden_size * num_dir
+
+        # # store the encoded language features
+
+        # data_dict["lang_emb"] = lang_intermediate # data_dict["lang_emb"] = lang_last # B, hidden_size
+        
+        # # classify
+        # if self.use_lang_classifier:
+        #     data_dict["lang_scores"] = self.lang_cls(lang_last) #data_dict["lang_emb"]
 
         return data_dict
 
