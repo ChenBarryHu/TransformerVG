@@ -115,10 +115,7 @@ def get_model(args, dataset_config):
         print("loading pretrained pipeline...")
 
         pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model.pth") # used model.pth as it stores the best model
-        model.load_state_dict(torch.load(pretrained_path), strict=False)
-        # uncomment to  unfreeze the last layer of encoder
-        # for param in model.detr.decoder.layers[7].parameters():
-        #     param.requires_grad = True
+        model.load_state_dict(torch.load(pretrained_path), strict=False) 
 
         if args.no_detection:
             # freeze pointnet++ backbone
@@ -133,6 +130,15 @@ def get_model(args, dataset_config):
             for param in model.proposal.parameters():
                 param.requires_grad = False
     
+    if args.unfreeze_decoder_last_layeres != 0:
+        dec_nlayers = args.dec_nlayers
+        unfrozen_dec_nlayers = args.unfreeze_decoder_last_layeres
+        for idx in range(dec_nlayers-unfrozen_dec_nlayers, dec_nlayers):
+            for param in model.detr.decoder.layers[idx].parameters():
+                param.requires_grad = True
+    if args.unfreeze_mlp_heads:
+        for param in model.detr.mlp_heads.parameters():
+            param.requires_grad = True
     # to CUDA
     model = model.cuda()
 
@@ -404,6 +410,10 @@ if __name__ == "__main__":
         help="Name of the model",
         choices=["3detr"],
     )
+
+    ##### unfreeze #####
+    parser.add_argument("--unfreeze_mlp_heads", action="store_true", default=False, help="Unfreeze the mlp detection heads.")
+    parser.add_argument("--unfreeze_decoder_last_layeres", type=int, default=0, help="Unfreeze last few layers of the detection decoder.")
     ### Encoder
     parser.add_argument(
         "--enc_type", default="masked", choices=["masked", "maskedv2", "vanilla"]

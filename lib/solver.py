@@ -265,7 +265,11 @@ class Solver():
             "pos_ratio": [],
             "neg_ratio": [],
             "iou_rate_0.25": [],
-            "iou_rate_0.5": []
+            "iou_rate_0.5": [],
+            "lr_detr": [],
+            "lr_mlp_projection": [],
+            "lr_lang": [],
+            "lr_matching": []
         }
 
     def _set_phase(self, phase):
@@ -304,6 +308,10 @@ class Solver():
             # Keep 3DETR parameter lr at 1e-6 since we use a pretrained model.
             self.optimizer.param_groups[0]['lr'] = 1e-6
             self.optimizer.param_groups[1]['lr'] = 1e-6
+            self._running_log["lr_detr"] = self.optimizer.param_groups[0]['lr']
+            self._running_log["lr_mlp_projection"] = self.optimizer.param_groups[2]['lr']
+            self._running_log["lr_lang"] = self.optimizer.param_groups[3]['lr']
+            self._running_log["lr_matching"] = self.optimizer.param_groups[4]['lr']
 
     def _compute_loss(self, data_dict):
         _, data_dict = get_loss(
@@ -438,6 +446,10 @@ class Solver():
 
             # report
             if phase == "train":
+                self.log[phase]["lr_detr"].append(self._running_log["lr_detr"])
+                self.log[phase]["lr_mlp_projection"].append(self._running_log["lr_mlp_projection"])
+                self.log[phase]["lr_lang"].append(self._running_log["lr_lang"])
+                self.log[phase]["lr_matching"].append(self._running_log["lr_matching"])
                 iter_time = self.log[phase]["fetch"][-1]
                 iter_time += self.log[phase]["forward"][-1]
                 iter_time += self.log[phase]["backward"][-1]
@@ -486,6 +498,7 @@ class Solver():
 
     def _dump_log(self, phase):
         log = {
+            "lr" : ["lr_detr", "lr_mlp_projection", "lr_lang","lr_matching"],
             "loss": ["loss", "ref_loss", "lang_loss", "3detr_loss"],
             "score": ["lang_acc", "ref_acc", "obj_acc", "pos_ratio", "neg_ratio", "iou_rate_0.25", "iou_rate_0.5"]
         }
