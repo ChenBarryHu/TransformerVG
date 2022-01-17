@@ -28,7 +28,7 @@ from lib.eval_helper import get_eval
 from lib.config import CONF
 
 # FIXME: point to the scannet scan files
-SCANNET_ROOT = "/home/barry/dev/ScanRefer/data/scannet/scans" # TODO point this to your scannet data
+SCANNET_ROOT = "E:/Daten/ADL4CV/Projekt/Code/ScanRefer/data/scannet/scans" # TODO point this to your scannet data
 SCANNET_MESH = os.path.join(SCANNET_ROOT, "{}/{}_vh_clean_2.ply") # scene_id, scene_id 
 SCANNET_META = os.path.join(SCANNET_ROOT, "{}/{}.txt") # scene_id, scene_id 
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
@@ -38,17 +38,55 @@ SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
 DC = ScannetDatasetConfig()
 
+def split_scene_new(scanrefer_data, lang_num_max=1, should_shuffle=False):
+    scanrefer_train_new = []
+    scanrefer_train_new_scene, scanrefer_train_scene = [], []
+    scene_id = ''
+    for data in scanrefer_data:
+        if scene_id != data["scene_id"]:
+            scene_id = data["scene_id"]
+            if len(scanrefer_train_scene) > 0:
+                if should_shuffle:
+                    random.shuffle(scanrefer_train_scene)
+                # print("scanrefer_train_scene", len(scanrefer_train_scene))
+                for new_data in scanrefer_train_scene:
+                    if len(scanrefer_train_new_scene) >= lang_num_max:
+                        scanrefer_train_new.append(scanrefer_train_new_scene)
+                        scanrefer_train_new_scene = []
+                    scanrefer_train_new_scene.append(new_data)
+                if len(scanrefer_train_new_scene) > 0:
+                    scanrefer_train_new.append(scanrefer_train_new_scene)
+                    scanrefer_train_new_scene = []
+                scanrefer_train_scene = []
+        scanrefer_train_scene.append(data)
+    if len(scanrefer_train_scene) > 0:
+        if should_shuffle:
+            random.shuffle(scanrefer_train_scene)
+        # print("scanrefer_train_scene", len(scanrefer_train_scene))
+        for new_data in scanrefer_train_scene:
+            if len(scanrefer_train_new_scene) >= lang_num_max:
+                scanrefer_train_new.append(scanrefer_train_new_scene)
+                scanrefer_train_new_scene = []
+            scanrefer_train_new_scene.append(new_data)
+        if len(scanrefer_train_new_scene) > 0:
+            scanrefer_train_new.append(scanrefer_train_new_scene)
+            scanrefer_train_new_scene = []
+    return scanrefer_train_new
+
 def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
+    scanrefer_new = split_scene_new(scanrefer_data=scanrefer, lang_num_max=1)
     dataset = ScannetReferenceDataset(
         scanrefer=scanrefer, 
-        scanrefer_all_scene=all_scene_list, 
+        scanrefer_all_scene=all_scene_list,
+        scanrefer_new=scanrefer_new,
         split=split, 
         num_points=args.num_points,
         use_height=(not args.no_height),
         use_color=args.use_color, 
         use_normal=args.use_normal, 
         use_multiview=args.use_multiview,
-        use_bert=(args.lang_type=="bert")
+        use_bert=(args.lang_type=="bert"),
+        lang_num_max=1
     )
     # FIXME: set the suitable num_worker
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.dataset_num_workers)
@@ -371,7 +409,7 @@ def dump_results(args, scanrefer, data, config):
     gt_box_sizes = data["gt_box_sizes"].cpu().numpy()
     gt_box_angles = torch.zeros(data["gt_box_corners"].shape[:2]).cpu().numpy()
     # reference
-    gt_ref_labels = data["ref_box_label"].detach().cpu().numpy()
+    gt_ref_labels = data["ref_box_label_list"].squeeze(dim=1).detach().cpu().numpy()
     box_corners_3detr = data['box_corners'].detach().cpu().numpy()
 
     for i in range(batch_size):
@@ -415,7 +453,7 @@ def dump_results(args, scanrefer, data, config):
         pred_masks = nms_masks[i] * pred_objectness[i] == 1
         assert pred_ref_scores[i].shape[0] == pred_center[i].shape[0]
         pred_ref_idx = np.argmax(pred_ref_scores[i] * pred_masks, 0)
-        assigned_gt = torch.gather(data["ref_box_label"], 1, data["object_assignment"]).detach().cpu().numpy()
+        assigned_gt = torch.gather(data["ref_box_label_list"].squeeze(dim=1), 1, data["object_assignment"]).detach().cpu().numpy()
 
         # visualize the predicted reference box
         # pred_obb = config.param2obb(pred_center[i, pred_ref_idx, 0:3], pred_heading_class[i, pred_ref_idx], pred_heading_residual[i, pred_ref_idx],
@@ -487,7 +525,7 @@ if __name__ == "__main__":
     parser.add_argument("--folder", type=str, help="Folder containing the model", required=True)
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
     parser.add_argument("--scene_id", type=str, help="scene id", default="")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=6)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=12)
     parser.add_argument('--num_points', type=int, default=40000, help='Point Number [default: 40000]')
     parser.add_argument('--num_proposals', type=int, default=256, help='Proposal number [default: 256]')
     parser.add_argument('--num_scenes', type=int, default=-1, help='Number of scenes [default: -1]')
