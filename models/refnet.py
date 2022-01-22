@@ -128,10 +128,10 @@ class RefNet(nn.Module):
             # Match the generated proposals and select the most confident ones
             use_3dvg = True
             if use_3dvg:
-                match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, use_att_mask=self.use_att_mask)
+                self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, use_att_mask=self.use_att_mask)
             else:
                 self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
-                self.sequential = nn.ModuleList([self.lang, self.match]) # self.feature_head removed
+            self.sequential = nn.ModuleList([self.lang, self.match]) # self.feature_head removed
 
 
     def forward(self, data_dict):

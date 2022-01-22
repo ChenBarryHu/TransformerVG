@@ -315,9 +315,8 @@ class Solver():
             self.optimizer.param_groups[0]['lr'] = 1e-6
             self.optimizer.param_groups[1]['lr'] = 1e-6
             self._running_log["lr_detr"] = self.optimizer.param_groups[0]['lr']
-            self._running_log["lr_mlp_projection"] = self.optimizer.param_groups[2]['lr']
-            self._running_log["lr_lang"] = self.optimizer.param_groups[3]['lr']
-            self._running_log["lr_matching"] = self.optimizer.param_groups[4]['lr']
+            self._running_log["lr_lang"] = self.optimizer.param_groups[2]['lr']
+            self._running_log["lr_matching"] = self.optimizer.param_groups[3]['lr']
 
     def _compute_loss(self, data_dict):
         _, data_dict = get_loss(
