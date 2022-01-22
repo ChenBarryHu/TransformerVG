@@ -94,7 +94,7 @@ class RefNet(nn.Module):
             # whereas the Python "is" operator checks whether two variables point to the same object in memory.
             if args.lang_type == "gru":
 
-                self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size)
+                lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size)
 
             elif args.lang_type == "attention":
                 lang = LangModuleAttention(
@@ -128,10 +128,10 @@ class RefNet(nn.Module):
             # Match the generated proposals and select the most confident ones
             use_3dvg = True
             if use_3dvg:
-                self.match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, use_att_mask=self.use_att_mask)
+                match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, use_att_mask=self.use_att_mask)
             else:
-                self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
-            self.sequential = nn.ModuleList([self.lang, self.match]) # self.feature_head removed
+                match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
+            self.sequential = nn.ModuleList([lang, match]) # self.feature_head removed
 
 
     def forward(self, data_dict):
