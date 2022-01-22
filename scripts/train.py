@@ -41,8 +41,8 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_bert=(args.lang_type=="bert")
     )
     # FIXME: change the num_worker based on the machine type
+    
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.dataset_num_workers)
-
     return dataset, dataloader
 
 def get_model(args, dataset_config):
@@ -69,9 +69,6 @@ def get_model(args, dataset_config):
 
         pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model.pth") # used model.pth as it stores the best model
         model.load_state_dict(torch.load(pretrained_path), strict=False)
-        # uncomment to  unfreeze the last layer of encoder
-        # for param in model.detr.decoder.layers[7].parameters():
-        #     param.requires_grad = True
 
         if args.no_detection:
             # freeze pointnet++ backbone
@@ -86,6 +83,16 @@ def get_model(args, dataset_config):
             for param in model.proposal.parameters():
                 param.requires_grad = False
     
+    if args.unfreeze_decoder_last_layeres != 0:
+        dec_nlayers = args.dec_nlayers
+        unfrozen_dec_nlayers = args.unfreeze_decoder_last_layeres
+        for idx in range(dec_nlayers-unfrozen_dec_nlayers, dec_nlayers):
+            for param in model.detr.decoder.layers[idx].parameters():
+                param.requires_grad = True
+    if args.unfreeze_mlp_heads:
+        for param in model.detr.mlp_heads.parameters():
+            param.requires_grad = True
+
     # to CUDA
     model = model.cuda()
 
@@ -94,8 +101,28 @@ def get_model(args, dataset_config):
 def get_num_params(model):
     # return num of trainable parameters
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-    num_params = int(sum([np.prod(p.size()) for p in model_parameters]))
+    num_params_total = int(sum([np.prod(p.size()) for p in model_parameters]))
 
+    model_parameters_detr = filter(lambda p: p.requires_grad, model.detr.parameters())
+    num_params_detr = int(sum([np.prod(p.size()) for p in model_parameters_detr]))
+
+    model_parameters_lang = filter(lambda p: p.requires_grad, model.sequential[0].parameters())
+    num_params_lang = int(sum([np.prod(p.size()) for p in model_parameters_lang]))
+
+    model_parameters_matching = filter(lambda p: p.requires_grad, model.sequential[1].parameters())
+    num_params_matching = int(sum([np.prod(p.size()) for p in model_parameters_matching]))
+
+    print(f"num_params_trainable_total is {num_params_total}")
+    print(f"num_params_trainable_detr is {num_params_detr}")
+    print(f"num_params_trainable_lang is {num_params_lang}")
+    print(f"num_params_trainable_matching is {num_params_matching}")
+
+    num_params = {
+        "total":num_params_total,
+        "detr":num_params_detr,
+        "lang":num_params_lang,
+        "matching":num_params_matching
+    }
     return num_params
 
 def get_num_params_total(model):
@@ -134,30 +161,33 @@ def get_solver(args, dataloader):
 
         if args.filter_biases_wd:
             param_groups = [
-                {"params": params_without_decay, "weight_decay": 0.0},
-                {"params": params_with_decay, "weight_decay": args.weight_decay},
+                {"params": params_without_decay, "lr": 1e-6, "weight_decay": 0.0},
+                {"params": params_with_decay, "lr": 1e-6, "weight_decay": args.weight_decay},
             ]
         else:
             param_groups = [
-                {"params": params_with_decay, "weight_decay": args.weight_decay},
+                {"params": params_with_decay, "lr": 1e-6, "weight_decay": args.weight_decay},
             ]
         # LR and WD hyperparameters taken over from the 3DVG paper.
         # Parameters Detection Head
-        param_groups.append(
-            {"params": model.sequential[0].parameters(),
-             "lr": 2e-3, "weight_decay": 1e-5}
-        )
+        # param_groups.append(
+        #     {"params": model.sequential[0].parameters(),
+        #      "lr": 1e-3, "weight_decay": 1e-5}
+        # )
         # Parameters Lang Module
         param_groups.append(
-            {"params": model.sequential[1].parameters(),
+            {"params": model.sequential[0].parameters(),
              "lr": 5e-4, "weight_decay": 1e-5}
         )
         # Parameters Matching Module
         param_groups.append(
-            {"params": model.sequential[2].parameters(),
+            {"params": model.sequential[1].parameters(),
              "lr": 5e-4, "weight_decay": 1e-5}
         )
-        optimizer = optim.Adam(param_groups, lr=args.lr)
+        if args.optimizer == "AdamW":
+            optimizer = optim.AdamW(param_groups, lr=args.lr) #Changed to AdamW
+        elif args.optimizer == "Adam":
+            optimizer = optim.Adam(param_groups, lr=args.lr)
         optimizers.append(optimizer)
 
     if args.use_checkpoint:
@@ -200,7 +230,6 @@ def get_solver(args, dataloader):
         bn_decay_rate=BN_DECAY_RATE
     )
     num_params = get_num_params(model)
-    print(f"num_params_trainable is {num_params}")
     print(f"num_params_total is {get_num_params_total(model)}")
     return solver, num_params, root
 
@@ -213,7 +242,10 @@ def save_info(args, root, num_params, train_dataset, val_dataset):
     info["num_val"] = len(val_dataset)
     info["num_train_scenes"] = len(train_dataset.scene_list)
     info["num_val_scenes"] = len(val_dataset.scene_list)
-    info["num_params"] = num_params
+    info["num_params"] = num_params["total"]
+    info["num_params_detr"] = num_params["detr"]
+    info["num_params_lang"] = num_params["lang"]
+    info["num_params_matching"] = num_params["matching"]
 
     with open(os.path.join(root, "info.json"), "w") as f:
         json.dump(info, f, indent=4)
@@ -300,7 +332,7 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
     # FIXME: set the right batch_size
     parser.add_argument("--batch_size", required=True, type=int, help="batch size", default=12)
-    parser.add_argument("--epoch", type=int, help="number of epochs", default=5000)
+    parser.add_argument("--epoch", type=int, help="number of epochs", default=80)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3) # 1e-3 is a better lr in the experiment so far
@@ -324,13 +356,14 @@ if __name__ == "__main__":
     parser.add_argument("--use_two_optim", action="store_true", help="Use 2 separate optimizers for detection and reference part.")
 
     #################################### [start] 3detr arguments #######################################
+    parser.add_argument("--optimizer", default="AdamW", choices=["AdamW", "Adam"], help="Switch between AdamW and Adam.")
     parser.add_argument("--base_lr", default=5e-4, type=float)
     parser.add_argument("--warm_lr", default=1e-6, type=float)
     parser.add_argument("--warm_lr_epochs", default=9, type=int)
     parser.add_argument("--final_lr", default=1e-6, type=float)
     parser.add_argument("--lr_scheduler", default="cosine", type=str)
     parser.add_argument("--weight_decay", default=0.1, type=float)
-    parser.add_argument("--filter_biases_wd", default=False, action="store_true")
+    parser.add_argument("--filter_biases_wd", default=True, action="store_true")
     parser.add_argument(
         "--clip_gradient", default=0.1, type=float, help="Max L2 norm of the gradient"
     )
@@ -349,6 +382,11 @@ if __name__ == "__main__":
         help="Name of the model",
         choices=["3detr"],
     )
+
+    ##### unfreeze #####
+    parser.add_argument("--unfreeze_mlp_heads", action="store_true", default=True, help="Unfreeze the mlp detection heads.")
+    parser.add_argument("--unfreeze_decoder_last_layeres", type=int, default=0, help="Unfreeze last few layers of the detection decoder.")
+
     ### Encoder
     parser.add_argument(
         "--enc_type", default="masked", choices=["masked", "maskedv2", "vanilla"]
@@ -357,7 +395,7 @@ if __name__ == "__main__":
     parser.add_argument("--enc_nlayers", default=3, type=int)
     parser.add_argument("--enc_dim", default=256, type=int)
     parser.add_argument("--enc_ffn_dim", default=128, type=int)
-    parser.add_argument("--enc_dropout", default=0.3, type=float)
+    parser.add_argument("--enc_dropout", default=0.5, type=float)
     parser.add_argument("--enc_nhead", default=4, type=int)
     parser.add_argument("--enc_pos_embed", default=None, type=str)
     parser.add_argument("--enc_activation", default="relu", type=str)

@@ -38,7 +38,7 @@ class LangModuleBert(nn.Module):
         num_head=4,
         dropout=0.1,
         batch_first=True,
-        lang_dim = 128
+        lang_dim = 256
     ):
         super(LangModuleBert, self).__init__()
         self.d_model = embed_dim
@@ -78,7 +78,7 @@ class LangModuleTransEncoder(nn.Module):
         num_head=4,
         dropout=0.1,
         batch_first=True,
-        lang_dim = 128
+        lang_dim = 256
     ):
         super(LangModuleTransEncoder, self).__init__()
         self.d_model = embed_dim
@@ -86,13 +86,13 @@ class LangModuleTransEncoder(nn.Module):
         self.pe = PositionalEmbedding(lang_dim)
         self.num_head = num_head
         self.use_lang_classifier = use_lang_classifier
-        self.transformer_encoder_layer = nn.TransformerEncoderLayer(d_model=lang_dim, nhead=4)
+        self.transformer_encoder_layer = nn.TransformerEncoderLayer(d_model=lang_dim, nhead=4, dim_feedforward=512)
         self.transformer_encoder = nn.TransformerEncoder(self.transformer_encoder_layer, num_layers=1)
         # self.fc_out = nn.Linear(embedding_size, trg_vocab_size)
         # self.dropout = nn.Dropout(dropout)
         # self.src_pad_idx = src_pad_idx
 
-        # project the lang features from 300 to 128
+        # project the lang features from 300 to lang_dim
         self.lang_projection = nn.Sequential(
             nn.Linear(self.d_model, self.lang_dim),
         )
@@ -149,7 +149,7 @@ class LangModuleAttention(nn.Module):
         num_head=4,
         dropout=0.1,
         batch_first=True,
-        lang_dim = 128,
+        lang_dim = 256,
         use_fc=False
     ):
         super(LangModuleAttention, self).__init__()
@@ -165,7 +165,7 @@ class LangModuleAttention(nn.Module):
             batch_first=True
         )
 
-        # project the lang features from 300 to 128
+        # project the lang features from 300 to lang_dim
         self.lang_projection = nn.Sequential(
                 nn.Linear(self.d_model, self.lang_dim),
             )
@@ -278,6 +278,7 @@ class LangModule(nn.Module):
 
         # store the encoded language features
 
+        # data_dict["lang_emb"] = lang_last # B, hidden_size
         data_dict["lang_emb"] = lang_intermediate # data_dict["lang_emb"] = lang_last # B, hidden_size
         
         # classify

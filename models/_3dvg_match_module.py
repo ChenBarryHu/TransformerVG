@@ -7,7 +7,7 @@ import random
 
 
 class MatchModule(nn.Module):
-    def __init__(self, num_proposals=256, lang_size=256, hidden_size=128, lang_num_size=300, det_channel=128, head=4, depth=2, use_att_mask=False): #det_channel was 288*4
+    def __init__(self, num_proposals=256, lang_size=256, hidden_size=256, lang_num_size=300, det_channel=256, head=4, depth=2, use_att_mask=False): #det_channel was 288*4
         super().__init__()
         self.use_box_embedding = False
         self.use_dist_weight_matrix = True
@@ -18,7 +18,7 @@ class MatchModule(nn.Module):
         self.depth = depth - 1
         self.use_att_mask = use_att_mask
         self.features_concat = nn.Sequential(
-            nn.Conv1d(det_channel, hidden_size, 1), #128x128x1
+            nn.Conv1d(det_channel, hidden_size, 1), #256x256x1
             nn.BatchNorm1d(hidden_size),
             nn.PReLU(hidden_size),
             nn.Conv1d(hidden_size, hidden_size, 1),
@@ -74,7 +74,7 @@ class MatchModule(nn.Module):
         # object size embedding
         # print(data_dict.keys())
         #features = data_dict['detr_features']
-        features = data_dict['scanrefer_features']
+        features = data_dict["box_features"].transpose(1, 2) # data_dict['scanrefer_features']
         # features = features.permute(1, 2, 0, 3)
         # B, N = features.shape[:2]
         # features = features.reshape(B, N, -1).permute(0, 2, 1)
@@ -147,8 +147,8 @@ class MatchModule(nn.Module):
 
         lang_fea = data_dict["lang_emb"]
         if self.use_att_mask is False:
-            lang_fea = lang_fea.unsqueeze(1).repeat(1, num_proposal, 1)
-            lang_fea = lang_fea.repeat(1, 1, 1)
+            # lang_fea = lang_fea.unsqueeze(1).repeat(1, num_proposal, 1)
+            # lang_fea = lang_fea.repeat(1, 1, 1)
             data_dict["attention_mask"] = None
 
 
