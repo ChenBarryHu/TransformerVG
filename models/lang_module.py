@@ -126,16 +126,16 @@ class LangModuleTransEncoder(nn.Module):
         word_embedding_with_pos = self.pe(word_embedding)
         # word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
         key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
-        data_dict["attention_mask"] = key_padding_mask
+        data_dict["attention_mask"] = key_padding_mask.to(device="cuda")
         embedding = self.transformer_encoder(src=word_embedding_with_pos, src_key_padding_mask=key_padding_mask)
         embedding = self.transformer_encoder(src=word_embedding_with_pos)
-        data_dict["lang_emb"] = embedding.permute(1,0,2)
+        data_dict["lang_emb"] = embedding.permute(1,0,2).to(device="cuda")
         global_lang_feature = F.max_pool2d(
             embedding.permute(1, 2, 0), kernel_size=[1, 126]
         )
         global_lang_feature = global_lang_feature.squeeze(-1)
         if self.use_lang_classifier:
-            data_dict["lang_scores"] = self.lang_cls(global_lang_feature)
+            data_dict["lang_scores"] = self.lang_cls(global_lang_feature).to(device="cuda")
 
         return data_dict
 
@@ -202,18 +202,18 @@ class LangModuleAttention(nn.Module):
         word_embedding_with_pos = self.pe(word_embedding)
         word_embedding_with_pos = word_embedding_with_pos.permute(1,0,2)
         key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
-        data_dict["attention_mask"] = key_padding_mask
+        data_dict["attention_mask"] = key_padding_mask.to(device="cuda")
         embedding = self.self_attention(word_embedding_with_pos, word_embedding_with_pos, word_embedding_with_pos, key_padding_mask=key_padding_mask)
         if self.use_fc:
-            data_dict["lang_emb"] = self.fc(embedding[0])
+            data_dict["lang_emb"] = self.fc(embedding[0]).to(device="cuda")
         else:
-            data_dict["lang_emb"] = embedding[0]
+            data_dict["lang_emb"] = embedding[0].to(device="cuda")
         global_lang_feature = F.max_pool2d(
             embedding[0].permute(0, 2, 1), kernel_size=[1, 126]
         )
-        global_lang_feature = global_lang_feature.squeeze(-1)
+        global_lang_feature = global_lang_feature.squeeze(-1).to(device="cuda")
         if self.use_lang_classifier:
-            data_dict["lang_scores"] = self.lang_cls(global_lang_feature)
+            data_dict["lang_scores"] = self.lang_cls(global_lang_feature).to(device="cuda")
 
         return data_dict
 
@@ -271,19 +271,19 @@ class LangModule(nn.Module):
         word_embs = data_dict["lang_feat"]
         lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"].cpu(), batch_first=True, enforce_sorted=False)
         key_padding_mask = self.lang_len_to_mask(data_dict["lang_len"])
-        data_dict["attention_mask"] = key_padding_mask
+        data_dict["attention_mask"] = key_padding_mask.to(device="cuda")
         # encode description
         lang_intermediate, lang_last = self.gru(word_embs) # lang_feat
-        lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1) # batch_size, hidden_size * num_dir
+        lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1).to(device="cuda") # batch_size, hidden_size * num_dir
 
         # store the encoded language features
 
         # data_dict["lang_emb"] = lang_last # B, hidden_size
-        data_dict["lang_emb"] = lang_intermediate # data_dict["lang_emb"] = lang_last # B, hidden_size
+        data_dict["lang_emb"] = lang_intermediate.to(device="cuda") # data_dict["lang_emb"] = lang_last # B, hidden_size
         
         # classify
         if self.use_lang_classifier:
-            data_dict["lang_scores"] = self.lang_cls(lang_last) #data_dict["lang_emb"]
+            data_dict["lang_scores"] = self.lang_cls(lang_last).to(device="cuda") #data_dict["lang_emb"]
 
         return data_dict
 

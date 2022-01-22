@@ -173,7 +173,6 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- LANGUAGE ENCODING ---------
-            self.lang(data_dict)
             data_dict = self.sequential[0](data_dict)
 
             #######################################
