@@ -29,9 +29,11 @@ class RefNet(nn.Module):
         self.detr, _ = build_model(args, dataset_config)
 
         # FIXME: set the weight_path to the correct path to 3detr-m (masked) pretrained weights
-        weight_path = "E:/Daten/ADL4CV/Pretrained_3detr/experiment_6/checkpoint_best.pth"
+        # weight_path = "E:/Daten/ADL4CV/Pretrained_3detr/experiment_14/checkpoint_best.pth"
+        weight_path = "/home/barry/dev/3dvg-3detr/outputs/experiment_14/checkpoint_best.pth"
+
         if os.path.isfile(weight_path):
-            print("Loading pretrained 3detr weights")
+            print(f"Loading pretrained 3detr weights from {weight_path}")
             weights = torch.load(weight_path)
             self.detr.load_state_dict(weights['model'])
         else:
@@ -68,7 +70,8 @@ class RefNet(nn.Module):
 
 
 
-        feature_head = mlp_func_feature(output_dim=128)
+
+        # self.feature_head = mlp_func_feature(output_dim=128)
 
 
         # --------- PROPOSAL GENERATION ---------
@@ -81,7 +84,7 @@ class RefNet(nn.Module):
         # Vote aggregation and object proposal
         # self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
-        self.sequential = nn.ModuleList([feature_head])
+
         if not no_reference:
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
@@ -90,7 +93,8 @@ class RefNet(nn.Module):
             # The "==" operator compares the value or equality of two objects, 
             # whereas the Python "is" operator checks whether two variables point to the same object in memory.
             if args.lang_type == "gru":
-                lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, 128)
+
+                lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size)
 
             elif args.lang_type == "attention":
                 lang = LangModuleAttention(
@@ -127,7 +131,8 @@ class RefNet(nn.Module):
                 match = dvg_matchmodule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size, use_att_mask=self.use_att_mask)
             else:
                 match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
-            self.sequential = nn.ModuleList([feature_head, lang, match])
+            self.sequential = nn.ModuleList([lang, match]) # self.feature_head removed
+
 
     def forward(self, data_dict):
         """ Forward pass of the network
@@ -158,9 +163,9 @@ class RefNet(nn.Module):
         self.detr(data_dict)
         box_features = data_dict["box_features"]
 
-        #scanrefer_features = self.feature_head(box_features).transpose(1, 2)
-        scanrefer_features = self.sequential[0](box_features).transpose(1, 2)
-        data_dict['scanrefer_features'] = scanrefer_features
+        # scanrefer_features = self.feature_head(box_features).transpose(1, 2)
+        # scanrefer_features = self.sequential[0](box_features).transpose(1, 2)
+        # data_dict['scanrefer_features'] = box_features.transpose(1, 2)
 
         
         if not self.no_reference:
@@ -171,8 +176,9 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- LANGUAGE ENCODING ---------
-            #self.lang(data_dict)
-            data_dict = self.sequential[1](data_dict)
+
+            # self.lang(data_dict)
+            data_dict = self.sequential[0](data_dict)
 
             #######################################
             #                                     #
@@ -182,6 +188,6 @@ class RefNet(nn.Module):
 
             # --------- PROPOSAL MATCHING ---------
             #data_dict = self.match(data_dict)
-            data_dict = self.sequential[2](data_dict)
+            data_dict = self.sequential[1](data_dict)
 
         return data_dict

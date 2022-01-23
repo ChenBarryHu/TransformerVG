@@ -392,7 +392,7 @@ class Model3DETR(nn.Module):
 
 def build_preencoder(args):
     input_feature_dim = int(args.use_multiview) * 128 + int(args.use_normal) * 3 + int(args.use_color) * 3 + int(args.use_height)
-    mlp_dims = [input_feature_dim, 64, 128, args.enc_dim]
+    mlp_dims = [input_feature_dim, 128, 128, args.enc_dim]
     preencoder = PointnetSAModuleVotes(
         radius=0.2,
         nsample=64,
