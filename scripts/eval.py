@@ -438,7 +438,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_scenes", type=int, default=-1, help="Number of scenes [default: -1]")
     parser.add_argument("--force", action="store_true", help="enforce the generation of results")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
-    parser.add_argument("--repeat", type=int, default=1, help="Number of times for evaluation")
+    parser.add_argument("--repeat", type=int, default=5, help="Number of times for evaluation")
     parser.add_argument("--no_height", default=False, action="store_true", help="Do NOT use height signal in input.")
     parser.add_argument("--no_lang_cls", action="store_true", help="Do NOT use language classifier.")
     parser.add_argument("--no_nms", action="store_true", help="do NOT use non-maximum suppression for post-processing.")
@@ -466,7 +466,7 @@ if __name__ == "__main__":
         "--clip_gradient", default=0.1, type=float, help="Max L2 norm of the gradient"
     )
     parser.add_argument(
-        "--lang_type", default="bert", choices=["gru", "attention", "transformer_encoder", "bert"]
+        "--lang_type", default="gru", choices=["gru", "attention", "transformer_encoder", "bert"]
     )
     parser.add_argument(
         "--use_att_mask", action="store_true", default=True, help="Use the attention mask in the matching module."
