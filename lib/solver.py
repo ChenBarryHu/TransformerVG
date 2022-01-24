@@ -190,7 +190,7 @@ class Solver():
         self.verbose = verbose
         self._total_iter["train"] = len(self.dataloader["train"]) * epoch
         self._total_iter["val"] = len(self.dataloader["val"]) * self.val_step
-        self.val_epoch_step = 1
+        self.val_epoch_step = 5
         for epoch_id in range(epoch):
             try:
                 self._log("epoch {} starting...".format(epoch_id + 1))
