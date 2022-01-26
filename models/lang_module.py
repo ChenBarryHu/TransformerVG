@@ -86,7 +86,7 @@ class LangModuleTransEncoder(nn.Module):
         self.pe = PositionalEmbedding(lang_dim)
         self.num_head = num_head
         self.use_lang_classifier = use_lang_classifier
-        self.transformer_encoder_layer = nn.TransformerEncoderLayer(d_model=lang_dim, nhead=4, dim_feedforward=512)
+        self.transformer_encoder_layer = nn.TransformerEncoderLayer(d_model=lang_dim, nhead=4, dim_feedforward=512, dropout=0.1)
         self.transformer_encoder = nn.TransformerEncoder(self.transformer_encoder_layer, num_layers=1)
         # self.fc_out = nn.Linear(embedding_size, trg_vocab_size)
         # self.dropout = nn.Dropout(dropout)

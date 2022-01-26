@@ -33,9 +33,9 @@ class MatchModule(nn.Module):
             nn.Conv1d(hidden_size, 1, 1)
         )
         self.self_attn = nn.ModuleList(
-            MultiHeadAttention(d_model=hidden_size, d_k=hidden_size // head, d_v=hidden_size // head, h=head) for i in range(depth))
+            MultiHeadAttention(d_model=hidden_size, d_k=hidden_size // head, d_v=hidden_size // head, h=head, dropout=0.1) for i in range(depth))
         self.cross_attn = nn.ModuleList(
-            MultiHeadAttention(d_model=hidden_size, d_k=hidden_size // head, d_v=hidden_size // head, h=head) for i in range(depth))  # k, q, v
+            MultiHeadAttention(d_model=hidden_size, d_k=hidden_size // head, d_v=hidden_size // head, h=head, dropout=0.1) for i in range(depth))  # k, q, v
 
         self.bbox_embedding = nn.Linear(12, 128)
 
