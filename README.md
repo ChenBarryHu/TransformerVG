@@ -1,4 +1,4 @@
-# 3dvg-trasnformer: 3D Visual grounding using transformer
+# TransformerVG: 3D Visual Grounding using Transformers
 
 ## Acknowledgement
 This work is a research project conducted by Erik Schütz and Shichen Hu for ADL4CV:Visual Computing course at the Technical University of Munich.
