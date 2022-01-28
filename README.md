@@ -1,26 +1,16 @@
-# ScanRefer: 3D Object Localization in RGB-D Scans using Natural Language
+# TransformerVG: 3D Visual Grounding with Transformers
+
+This repository is for the TransformerVG research project and 9st method on ScanRefer benchmark [paper].
 
 <p align="center"><img src="demo/ScanRefer.gif" width="600px"/></p>
 
 ## Introduction
+In this project we perform the task of 3D visual grounding using an architecture that utilizes transformers. Existing approaches to this problem use an object detection module based on VoteNet and a fusion module, that fuses language features with the detected object features to predictthe final confidence scores. We propose TransformerVG, a transformer-based visual grounding pipeline that combines the 3DETR object detector with the transformer-based fusion model from the 3DVG pipeline. Through extensive experiments, we outperform the ScanRefer baseline in the Acc@50 metric by 6% on the Benchmark.
 
-We introduce the new task of 3D object localization in RGB-D scans using natural language descriptions. As input, we assume a point cloud of a scanned 3D scene along with a free-form description of a specified target object. To address this task, we propose ScanRefer, where the core idea is to learn a fused descriptor from 3D object proposals and encoded sentence embeddings. This learned descriptor then correlates the language expressions with the underlying geometric features of the 3D scan and facilitates the regression of the 3D bounding box of the target object. In order to train and benchmark our method, we introduce a new ScanRefer dataset, containing 51,583 descriptions of 11,046 objects from 800 [ScanNet](http://www.scan-net.org/) scenes. ScanRefer is the first large-scale effort to perform object localization via natural language expression directly in 3D.
 
-Please also check out the project website [here](https://daveredrum.github.io/ScanRefer/).
+## News
+2022-01-29 We achieve 9st place in ScanRefer leaderboard fire
 
-For additional detail, please see the ScanRefer paper:  
-"[ScanRefer: 3D Object Localization in RGB-D Scans using Natural Language](https://arxiv.org/abs/1912.08830)"  
-by [Dave Zhenyu Chen](https://www.niessnerlab.org/members/zhenyu_chen/profile.html), [Angel X. Chang](https://angelxuanchang.github.io/) and [Matthias Nießner](https://www.niessnerlab.org/members/matthias_niessner/profile.html)  
-from [Technical University of Munich](https://www.tum.de/en/) and [Simon Fraser University](https://www.sfu.ca/).
-
-## :star2: Benchmark Challenge :star2:
-We provide the ScanRefer Benchmark Challenge for benchmarking your model automatically on the hidden test set! Learn more at our [benchmark challenge website](http://kaldir.vc.in.tum.de/scanrefer_benchmark/).
-After finishing training the model, please download [the benchmark data](http://kaldir.vc.in.tum.de/scanrefer_benchmark_data.zip) and put the unzipped `ScanRefer_filtered_test.json` under `data/`. Then, you can run the following script the generate predictions:
-```shell
-python scripts/predict.py --folder <folder_name> --use_color
-```
-Note that the flags must match the ones set before training. The training information is stored in `outputs/<folder_name>/info.json`. The generated predictions are stored in `outputs/<folder_name>/pred.json`.
-For submitting the predictions, please compress the `pred.json` as a .zip or .7z file and follow the [instructions](http://kaldir.vc.in.tum.de/scanrefer_benchmark/documentation) to upload your results.
 
 ## Dataset
 
@@ -44,12 +34,11 @@ wget <download_link>
 ```
 
 ## Setup
-~~The code is tested on Ubuntu 16.04 LTS & 18.04 LTS with PyTorch 1.2.0 CUDA 10.0 installed. There are some issues with the newer version (>=1.3.0) of PyTorch. You might want to make sure you have installed the correct version. Otherwise, please execute the following command to install PyTorch:~~
 
-The code is now compatiable with PyTorch 1.6! Please execute the following command to install PyTorch
+The code is now compatiable with PyTorch 1.! Please execute the following command to install PyTorch
 
 ```shell
-conda install pytorch==1.6.0 torchvision==0.7.0 cudatoolkit=10.2 -c pytorch
+conda install pytorch==1.10.0 torchvision==0.11.1 cudatoolkit=11.3.1 -c pytorch
 ```
 
 Install the necessary packages listed out in `requirements.txt`:
@@ -102,23 +91,23 @@ python batch_load_scannet_data.py
 
 ## Usage
 ### Training
-To train the ScanRefer model with RGB values:
+To train the TransformerVG model with XYZ+Multiview+Normals+Height values:
 ```shell
-python scripts/train.py --use_color
+python scripts/train.py --use_multiview --use_height --use_normal --use_att_mask --dataset_num_workers <value for dataset_num_workers> --batch_size <value for batch size>
 ```
 For more training options (like using preprocessed multiview features), please run `scripts/train.py -h`.
 
 ### Evaluation
-To evaluate the trained ScanRefer models, please find the folder under `outputs/` with the current timestamp and run:
+To evaluate the trained TransformerVG models, please find the folder under `outputs/` with the current timestamp and run:
 ```shell
-python scripts/eval.py --folder <folder_name> --reference --use_color --no_nms --force --repeat 5
+python scripts/eval.py --folder <folder_name> --reference --use_multiview --use_height --use_normal --no_nms --force --repeat 5 --dataset_num_workers <value for dataset_num_workers> --batch_size <value for batch size>
 ```
 Note that the flags must match the ones set before training. The training information is stored in `outputs/<folder_name>/info.json`
 
 ### Visualization
 To predict the localization results predicted by the trained ScanRefer model in a specific scene, please find the corresponding folder under `outputs/` with the current timestamp and run:
 ```shell
-python scripts/visualize.py --folder <folder_name> --scene_id <scene_id> --use_color
+python scripts/visualize.py --folder <folder_name> --scene_id <scene_id> --use_multiview --use_height --use_normal --dataset_num_workers <value for dataset_num_workers> --batch_size <value for batch size> --use_train
 ```
 Note that the flags must match the ones set before training. The training information is stored in `outputs/<folder_name>/info.json`. The output `.ply` files will be stored under `outputs/<folder_name>/vis/<scene_id>/`
 
@@ -261,44 +250,12 @@ For reproducing our results in the paper, we provide the following training comm
     
 </table>
 
-If you would like to try out the pre-trained models, please download the model weights and extract the folder to `outputs/`. Note that the results are higher than before because of a few iterations of code refactoring and bug fixing.
+If you would like to try out the pre-trained models, please download the model weights and extract the folder to `outputs/`.
 
 ## Changelog
-11/11/2020: Updated paper with the improved results due to bug fixing.
 
-11/05/2020: Released pre-trained weights.
+01/29/2022: Released the TransformerVG.
 
-08/08/2020: Fixed the issue with `lib/box_util.py`.
-
-08/03/2020: Fixed the issue with `lib/solver.py` and `script/eval.py`.
-
-06/16/2020: Fixed the issue with multiview features.
-
-01/31/2020: Fixed the issue with bad tokens.
-
-01/21/2020: Released the ScanRefer dataset.
-
-## Citation
-
-If you use the ScanRefer data or code in your work, please kindly cite our work and the original ScanNet paper:
-
-```bibtex
-@inproceedings{chen2020scanrefer,
-    title={Scanrefer: 3d object localization in rgb-d scans using natural language},
-    author={Chen, Dave Zhenyu and Chang, Angel X and Nie{\ss}ner, Matthias},
-    booktitle={Computer Vision--ECCV 2020: 16th European Conference, Glasgow, UK, August 23--28, 2020, Proceedings, Part XX 16},
-    pages={202--221},
-    year={2020},
-    organization={Springer}
-}
-
-@inproceedings{dai2017scannet,
-    title={Scannet: Richly-annotated 3d reconstructions of indoor scenes},
-    author={Dai, Angela and Chang, Angel X and Savva, Manolis and Halber, Maciej and Funkhouser, Thomas and Nie{\ss}ner, Matthias},
-    booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
-    pages={5828--5839},
-    year={2017}
-}
 ```
 
 ## Acknowledgement
@@ -314,9 +271,10 @@ Copyright (c) 2020 Dave Zhenyu Chen, Angel X. Chang, Matthias Nießner
 ## Acknowledgement
 This work is a research project conducted by Erik Schütz and Shichen Hu for ADL4CV:Visual Computing course at the Technical University of Munich.
 
-We acknowledge that our work is based on ScanRefer and 3DETR:
+We acknowledge that our work is based on ScanRefer, 3DETR and 3DVG-Transformer:
 https://github.com/daveredrum/ScanRefer
 https://github.com/facebookresearch/3detr
+https://openaccess.thecvf.com/content/ICCV2021/papers/Zhao_3DVG-Transformer_Relation_Modeling_for_Visual_Grounding_on_Point_Clouds_ICCV_2021_paper.pdf 
 
 ## License
 This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License](LICENSE).
