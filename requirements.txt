@@ -6,3 +6,5 @@ easydict
 tqdm
 h5py
 matplotlib
+networkx
+scipy
