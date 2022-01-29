@@ -466,7 +466,7 @@ if __name__ == "__main__":
         "--clip_gradient", default=0.1, type=float, help="Max L2 norm of the gradient"
     )
     parser.add_argument(
-        "--lang_type", default="gru", choices=["gru", "attention", "transformer_encoder", "bert"]
+        "--lang_type", default="transformer_encoder", choices=["gru", "attention", "transformer_encoder", "bert"]
     )
     parser.add_argument(
         "--use_att_mask", action="store_true", default=True, help="Use the attention mask in the matching module."
