@@ -45,6 +45,52 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.dataset_num_workers)
     return dataset, dataloader
 
+
+def resume_if_possible(checkpoint_dir, model_no_ddp, optimizer):
+    """
+    Resume if checkpoint is available.
+    Return
+    - epoch of loaded checkpoint.
+    """
+    epoch = 0
+    best_val_metrics = {
+        "epoch": 0,
+        "loss": float("inf"),
+        "ref_loss": float("inf"),
+        "lang_loss": float("inf"),
+        "objectness_loss": float("inf"),
+        "vote_loss": float("inf"),
+        "box_loss": float("inf"),
+        "lang_acc": -float("inf"),
+        "ref_acc": -float("inf"),
+        "obj_acc": -float("inf"),
+        "pos_ratio": -float("inf"),
+        "neg_ratio": -float("inf"),
+        "iou_rate_0.25": -float("inf"),
+        "iou_rate_0.5": -float("inf")
+    }
+
+    if not os.path.isdir(checkpoint_dir):
+        return epoch, best_val_metrics
+
+    last_checkpoint = os.path.join(checkpoint_dir, "checkpoint.tar")
+    if not os.path.isfile(last_checkpoint):
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        return epoch, best_val_metrics
+
+    sd = torch.load(last_checkpoint, map_location=torch.device("cpu"))
+    epoch = sd["epoch"]
+    args = sd["args"]
+    best_val_metrics = sd["best_val_metrics"]
+    print(f"Found checkpoint at {epoch}. Resuming.")
+
+    model_no_ddp.load_state_dict(sd["model_state_dict"])
+    optimizer.load_state_dict(sd["optimizer_state_dict"])
+    print(
+        f"Loaded model and optimizer state at epoch {epoch}. Loaded best val metrics so far."
+    )
+    return epoch, best_val_metrics, args
+
 def get_model(args, dataset_config):
     # initiate model
     input_channels = int(args.use_multiview) * 128 + int(args.use_normal) * 3 + int(args.use_color) * 3 + int(args.use_height)
@@ -190,28 +236,16 @@ def get_solver(args, dataloader):
             optimizer = optim.Adam(param_groups, lr=args.lr)
         optimizers.append(optimizer)
 
-    if args.use_checkpoint:
-        print("loading checkpoint {}...".format(args.use_checkpoint))
-        stamp = args.use_checkpoint
-        root = os.path.join(CONF.PATH.OUTPUT, stamp)
-        checkpoint = torch.load(os.path.join(CONF.PATH.OUTPUT, args.use_checkpoint, "checkpoint.tar"))
-        model.load_state_dict(checkpoint["model_state_dict"])
-        if args.use_two_optim:
-            optimizers[0].load_state_dict(checkpoint["optimizer_3detr_state_dict"])
-            optimizers[1].load_state_dict(checkpoint["optimizer_reference_state_dict"])
-        else:
-            optimizers[0].load_state_dict(checkpoint["optimizer_state_dict"])
-    else:
-        stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        if args.tag: stamp += "_"+args.tag.upper()
-        root = os.path.join(CONF.PATH.OUTPUT, stamp)
-        os.makedirs(root, exist_ok=True)
-
     # scheduler parameters for training solely the detection pipeline
     LR_DECAY_STEP = [80, 120, 160] if args.no_reference else None
     LR_DECAY_RATE = 0.1 if args.no_reference else None
     BN_DECAY_STEP = 20 if args.no_reference else None
     BN_DECAY_RATE = 0.5 if args.no_reference else None
+
+    if args.use_checkpoint:
+        stamp = args.use_checkpoint
+    else:
+        stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     solver = Solver(
         model=model, 
@@ -229,9 +263,26 @@ def get_solver(args, dataloader):
         bn_decay_step=BN_DECAY_STEP,
         bn_decay_rate=BN_DECAY_RATE
     )
+    if args.use_checkpoint:
+        print("loading checkpoint {}...".format(args.use_checkpoint))
+        stamp = args.use_checkpoint
+        root = os.path.join(CONF.PATH.OUTPUT, stamp)
+        # checkpoint = torch.load(os.path.join(CONF.PATH.OUTPUT, args.use_checkpoint, "checkpoint.tar"))
+        solver.epoch, solver.best, solver.args = resume_if_possible(root, model, optimizers[0])
+        # model.load_state_dict(checkpoint["model_state_dict"])
+        # if args.use_two_optim:
+        #     optimizers[0].load_state_dict(checkpoint["optimizer_3detr_state_dict"])
+        #     optimizers[1].load_state_dict(checkpoint["optimizer_reference_state_dict"])
+        # else:
+        #     optimizers[0].load_state_dict(checkpoint["optimizer_state_dict"])
+    else:
+        stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        if args.tag: stamp += "_"+args.tag.upper()
+        root = os.path.join(CONF.PATH.OUTPUT, stamp)
+        os.makedirs(root, exist_ok=True)
     num_params = get_num_params(model)
     print(f"num_params_total is {get_num_params_total(model)}")
-    return solver, num_params, root
+    return solver, num_params, root, args
 
 def save_info(args, root, num_params, train_dataset, val_dataset):
     info = {}
@@ -315,7 +366,7 @@ def train(args):
     }
 
     print("initializing...")
-    solver, num_params, root = get_solver(args, dataloader)
+    solver, num_params, root, args = get_solver(args, dataloader)
 
     print("Start training...\n")
     save_info(args, root, num_params, train_dataset, val_dataset)
@@ -332,7 +383,7 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", type=str, help="gpu", default="0")
     # FIXME: set the right batch_size
     parser.add_argument("--batch_size", required=True, type=int, help="batch size", default=12)
-    parser.add_argument("--epoch", type=int, help="number of epochs", default=80)
+    parser.add_argument("--epoch", type=int, help="number of epochs", default=50)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3) # 1e-3 is a better lr in the experiment so far

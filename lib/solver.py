@@ -518,21 +518,38 @@ class Solver():
                 "epoch": epoch_id,
                 "model_state_dict": self.model.state_dict(),
                 "optimizer_3detr_state_dict": self.optimizer_3detr.state_dict(),
-                "optimizer_reference_state_dict": self.optimizer.state_dict()
+                "optimizer_reference_state_dict": self.optimizer.state_dict(),
             }
         else:
             save_dict = {
                 "epoch": epoch_id,
+                "args": self.args,
                 "model_state_dict": self.model.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict()
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "best_val_metrics": self.best
             }
+        
         checkpoint_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
         torch.save(save_dict, os.path.join(checkpoint_root, "checkpoint.tar"))
 
         # save model
         self._log("saving last models...\n")
         model_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
-        torch.save(self.model.state_dict(), os.path.join(model_root, "model_last.pth"))
+        save_dict = {
+            "epoch": epoch_id,
+            "args": self.args,
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "best_val_metrics": self.best
+        }
+        
+        checkpoint_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
+        torch.save(save_dict, os.path.join(checkpoint_root, "checkpoint.tar"))
+
+        # # save model
+        # self._log("saving last models...\n")
+        # model_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
+        # torch.save(self.model.state_dict(), os.path.join(model_root, "model_last.pth"))
 
         # export
         for phase in ["train", "val"]:
@@ -617,6 +634,7 @@ class Solver():
     
     def _best_report(self):
         self._log("training completed...")
+        print(self.best)
         best_report = self.__best_report_template.format(
             epoch=self.best["epoch"],
             loss=round(self.best["loss"], 5),
