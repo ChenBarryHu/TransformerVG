@@ -81,6 +81,7 @@ class Solver():
     lr_decay_step=None, lr_decay_rate=None, bn_decay_step=None, bn_decay_rate=None):
 
         self.epoch = 0                    # set in __call__
+        self.start_epoch = 0
         self.verbose = 0                  # set in __call__
         
         self.model = model
@@ -189,7 +190,7 @@ class Solver():
         self._total_iter["train"] = len(self.dataloader["train"]) * epoch
         self._total_iter["val"] = len(self.dataloader["val"]) * self.val_step
         self.val_epoch_step = 1
-        for epoch_id in range(epoch):
+        for epoch_id in range(self.start_epoch, epoch):
             try:
                 self._log("epoch {} starting...".format(epoch_id + 1))
 
@@ -533,18 +534,6 @@ class Solver():
         torch.save(save_dict, os.path.join(checkpoint_root, "checkpoint.tar"))
 
         # save model
-        self._log("saving last models...\n")
-        model_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
-        save_dict = {
-            "epoch": epoch_id,
-            "args": self.args,
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "best_val_metrics": self.best
-        }
-        
-        checkpoint_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
-        torch.save(save_dict, os.path.join(checkpoint_root, "checkpoint.tar"))
 
         # # save model
         # self._log("saving last models...\n")
@@ -634,7 +623,6 @@ class Solver():
     
     def _best_report(self):
         self._log("training completed...")
-        print(self.best)
         best_report = self.__best_report_template.format(
             epoch=self.best["epoch"],
             loss=round(self.best["loss"], 5),

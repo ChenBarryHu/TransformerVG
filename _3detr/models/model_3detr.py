@@ -293,12 +293,12 @@ class Model3DETR(nn.Module):
             box_corners = self.box_processor.box_parametrization_to_corners(
                 center_unnormalized, size_unnormalized, angle_continuous
             )
-            min_dim = box_corners.min()
-            max_dim = box_corners.max()
-            gt_min_dim = data_dict['gt_box_corners'].min()
-            gt_max_dim = data_dict['gt_box_corners'].max()
-            gt_min_dim = data_dict['gt_box_sizes_normalized'].min()
-            gt_max_dim = data_dict['gt_box_sizes_normalized'].max()
+            # min_dim = box_corners.min()
+            # max_dim = box_corners.max()
+            # gt_min_dim = data_dict['gt_box_corners'].min()
+            # gt_max_dim = data_dict['gt_box_corners'].max()
+            # gt_min_dim = data_dict['gt_box_sizes_normalized'].min()
+            # gt_max_dim = data_dict['gt_box_sizes_normalized'].max()
             # below are not used in computing loss (only for matching/mAP eval)
             # we compute them with no_grad() so that distributed training does not complain about unused variables
             with torch.no_grad():

@@ -71,12 +71,12 @@ def resume_if_possible(checkpoint_dir, model_no_ddp, optimizer):
     }
 
     if not os.path.isdir(checkpoint_dir):
-        return epoch, best_val_metrics
+        return epoch, best_val_metrics, None
 
     last_checkpoint = os.path.join(checkpoint_dir, "checkpoint.tar")
     if not os.path.isfile(last_checkpoint):
         os.makedirs(checkpoint_dir, exist_ok=True)
-        return epoch, best_val_metrics
+        return epoch, best_val_metrics, None
 
     sd = torch.load(last_checkpoint, map_location=torch.device("cpu"))
     epoch = sd["epoch"]
@@ -268,7 +268,9 @@ def get_solver(args, dataloader):
         stamp = args.use_checkpoint
         root = os.path.join(CONF.PATH.OUTPUT, stamp)
         # checkpoint = torch.load(os.path.join(CONF.PATH.OUTPUT, args.use_checkpoint, "checkpoint.tar"))
-        solver.epoch, solver.best, solver.args = resume_if_possible(root, model, optimizers[0])
+        solver.start_epoch, solver.best, loaded_args = resume_if_possible(root, model, optimizers[0])
+        if loaded_args is not None:
+            solver.args = loaded_args
         # model.load_state_dict(checkpoint["model_state_dict"])
         # if args.use_two_optim:
         #     optimizers[0].load_state_dict(checkpoint["optimizer_3detr_state_dict"])
