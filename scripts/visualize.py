@@ -28,7 +28,7 @@ from lib.eval_helper import get_eval
 from lib.config import CONF
 
 # FIXME: point to the scannet scan files
-SCANNET_ROOT = "/home/barry/dev/ScanRefer/data/scannet/scans" # TODO point this to your scannet data
+SCANNET_ROOT = "/home/barry/dev/ScanRefer/data/scannet/scans_test" # TODO point this to your scannet data
 SCANNET_MESH = os.path.join(SCANNET_ROOT, "{}/{}_vh_clean_2.ply") # scene_id, scene_id 
 SCANNET_META = os.path.join(SCANNET_ROOT, "{}/{}.txt") # scene_id, scene_id 
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
@@ -314,6 +314,7 @@ def export_mesh(vertices, faces):
     return PlyData([vertices, faces])
 
 def align_mesh(scene_id):
+    axis_align_matrix = None
     vertices, faces = read_mesh(SCANNET_MESH.format(scene_id, scene_id))
     for line in open(SCANNET_META.format(scene_id, scene_id)).readlines():
         if 'axisAlignment' in line:
@@ -323,7 +324,8 @@ def align_mesh(scene_id):
     # align
     pts = np.ones((vertices.shape[0], 4))
     pts[:, :3] = vertices[:, :3]
-    pts = np.dot(pts, axis_align_matrix.T)
+    if axis_align_matrix is not None:
+        pts = np.dot(pts, axis_align_matrix.T)
     vertices[:, :3] = pts[:, :3]
     mesh = export_mesh(vertices, faces)
 

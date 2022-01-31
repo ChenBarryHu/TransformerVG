@@ -364,7 +364,7 @@ class ScannetReferenceDataset(Dataset):
                     point_votes[ind, :] = center - x
                     point_votes_mask[ind] = 1.0
             # make 3 votes identical
-            point_votes = np.tile(point_votes, (1, 3))
+            # point_votes = np.tile(point_votes, (1, 3)) # votes are not used in TransformerVG
 
             class_ind = [DC.nyu40id2class[int(x)]
                          for x in instance_bboxes[:num_bbox, -2]]
@@ -386,8 +386,10 @@ class ScannetReferenceDataset(Dataset):
         else:
             num_bbox = 1
             # make 3 votes identical
-            point_votes = np.zeros([self.num_points, 9])
-            point_votes_mask = np.zeros(self.num_points)
+            # point_votes = np.zeros([self.num_points, 9]) # votes are not used in TransformerVG
+            # point_votes_mask = np.zeros(self.num_points) # votes are not used in TransformerVG
+            point_cloud_dims_min = point_cloud.min(axis=0)[:3] # needed for test set
+            point_cloud_dims_max = point_cloud.max(axis=0)[:3] # needed for test set
 
         target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
         try:
@@ -405,88 +407,120 @@ class ScannetReferenceDataset(Dataset):
         data_dict = {}
         data_dict["istrain"] = istrain
         # from 3detr:
-        data_dict["gt_box_corners"] = box_corners.astype(np.float32)
-        # data_dict["gt_box_centers"] = box_centers.astype(
-            # np.float32)  # same as center_label in ScanRefer
-        data_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(
-            np.float32
-        )
-        # data_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)  # same as heading_class_label from scanrefer
-        # data_dict["gt_angle_residual_label"] = angle_residuals.astype(
-        #     np.float32) # same as heading_residual_label from scanrefer
-        # the following lines are the same as lines 283 to 286
-        # target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
-        # target_bboxes_semcls[0 : instance_bboxes.shape[0]] = [
-        #     self.dataset_config.nyu40id2class[x]
-        #     for x in instance_bboxes[:, -2][0 : instance_bboxes.shape[0]]
-        # ]
-        # data_dict["gt_box_sem_cls_label"] = target_bboxes_semcls.astype(
-        #     np.int64)  # same as sem_cls_label in scanrefer
-        # data_dict["gt_box_present"] = target_bboxes_mask.astype(
-        #     np.float32)  # same as box_label_mask in scanrefer
-        # data_dict["scan_idx"] = np.array(idx).astype(
-        #     np.int64)  # same as scan_idx in scanrefer
-        # data_dict["pcl_color"] = pcl_color  # same as pcl_color in scanrefer
-        data_dict["gt_box_sizes"] = raw_sizes.astype(np.float32)
-        data_dict["gt_box_sizes_normalized"] = box_sizes_normalized.astype(
-            np.float32)
-        #data_dict["gt_box_angles"] = raw_angles.astype(
-            #np.float32)  # this is basically 0 --> This is not needed
-        data_dict["point_cloud_dims_min"] = point_cloud_dims_min.astype(
-            np.float32)
-        data_dict["point_cloud_dims_max"] = point_cloud_dims_max.astype(
-            np.float32)
 
-        # from scanrefer
-        data_dict["point_clouds"] = point_cloud.astype(
-            np.float32)  # point cloud data including features
-        data_dict["lang_feat"] = lang_feat.astype(
-            np.float32)  # language feature vectors
-        if self.use_bert:
-            data_dict["bert_input_ids"] = bert_input_ids.astype(np.int64)
-            data_dict["bert_token_type_ids"] = bert_token_type_ids.astype(np.int64)
-            data_dict["bert_attention_mask"] = bert_attention_mask.astype(np.int64)
-        data_dict["lang_len"] = np.array(lang_len).astype(
-            np.int64)  # length of each description
-        data_dict["center_label"] = target_bboxes.astype(
-            np.float32)[:, 0:3]  # (MAX_NUM_OBJ, 3) for GT box center XYZ
-        # (MAX_NUM_OBJ,) with int values in 0,...,NUM_HEADING_BIN-1
-        #data_dict["heading_class_label"] = angle_classes.astype(np.int64)  --> AlWAYS 0 and not needed
-        #data_dict["heading_residual_label"] = angle_residuals.astype(
-            #np.float32)  # (MAX_NUM_OBJ,)
-        # (MAX_NUM_OBJ,) with int values in 0,...,NUM_SIZE_CLUSTER
-        data_dict["size_class_label"] = size_classes.astype(np.int64)
-        data_dict["size_residual_label"] = size_residuals.astype(
-            np.float32)  # (MAX_NUM_OBJ, 3)
-        data_dict["num_bbox"] = np.array(num_bbox).astype(np.int64)
-        data_dict["sem_cls_label"] = target_bboxes_semcls.astype(
-            np.int64)  # (MAX_NUM_OBJ,) semantic class index
-        # (MAX_NUM_OBJ) as 0/1 with 1 indicating a unique box
-        data_dict["box_label_mask"] = target_bboxes_mask.astype(np.float32)
-        # data_dict["vote_label"] = point_votes.astype(np.float32)
-        # data_dict["vote_label_mask"] = point_votes_mask.astype(np.int64)
-        data_dict["scan_idx"] = np.array(idx).astype(np.int64)
-        data_dict["pcl_color"] = pcl_color
-        data_dict["ref_box_label"] = ref_box_label.astype(
-            np.int64)  # 0/1 reference labels for each object bbox
-        # data_dict["ref_box_label"] = ref_box_label.astype(
-        #     np.int64)  # 0/1 reference labels for each object bbox
-        data_dict["ref_center_label"] = ref_center_label.astype(np.float32)
-        data_dict["ref_heading_class_label"] = np.array(
-            int(ref_heading_class_label)).astype(np.int64)
-        data_dict["ref_heading_residual_label"] = np.array(
-            int(ref_heading_residual_label)).astype(np.int64)
-        data_dict["ref_size_class_label"] = np.array(
-            int(ref_size_class_label)).astype(np.int64)
-        data_dict["ref_size_residual_label"] = ref_size_residual_label.astype(
-            np.float32)
-        data_dict["object_id"] = np.array(int(object_id)).astype(np.int64)
-        data_dict["ann_id"] = np.array(int(ann_id)).astype(np.int64)
-        data_dict["object_cat"] = np.array(object_cat).astype(np.int64)
-        data_dict["unique_multiple"] = np.array(
-            self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]).astype(np.int64)
-        # data_dict["pcl_color"] = pcl_color
-        data_dict["load_time"] = time.time() - start
+        if self.split != "test":
+            data_dict["gt_box_corners"] = box_corners.astype(np.float32)
+            # data_dict["gt_box_centers"] = box_centers.astype(
+                # np.float32)  # same as center_label in ScanRefer
+            data_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(
+                np.float32
+            )
+            # data_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)  # same as heading_class_label from scanrefer
+            # data_dict["gt_angle_residual_label"] = angle_residuals.astype(
+            #     np.float32) # same as heading_residual_label from scanrefer
+            # the following lines are the same as lines 283 to 286
+            # target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
+            # target_bboxes_semcls[0 : instance_bboxes.shape[0]] = [
+            #     self.dataset_config.nyu40id2class[x]
+            #     for x in instance_bboxes[:, -2][0 : instance_bboxes.shape[0]]
+            # ]
+            # data_dict["gt_box_sem_cls_label"] = target_bboxes_semcls.astype(
+            #     np.int64)  # same as sem_cls_label in scanrefer
+            # data_dict["gt_box_present"] = target_bboxes_mask.astype(
+            #     np.float32)  # same as box_label_mask in scanrefer
+            # data_dict["scan_idx"] = np.array(idx).astype(
+            #     np.int64)  # same as scan_idx in scanrefer
+            # data_dict["pcl_color"] = pcl_color  # same as pcl_color in scanrefer
+            data_dict["gt_box_sizes"] = raw_sizes.astype(np.float32)
+            data_dict["gt_box_sizes_normalized"] = box_sizes_normalized.astype(
+                np.float32)
+            #data_dict["gt_box_angles"] = raw_angles.astype(
+                #np.float32)  # this is basically 0 --> This is not needed
+            data_dict["point_cloud_dims_min"] = point_cloud_dims_min.astype(
+                np.float32)
+            data_dict["point_cloud_dims_max"] = point_cloud_dims_max.astype(
+                np.float32)
+
+            # from scanrefer
+            data_dict["point_clouds"] = point_cloud.astype(
+                np.float32)  # point cloud data including features
+            data_dict["lang_feat"] = lang_feat.astype(
+                np.float32)  # language feature vectors
+            if self.use_bert:
+                data_dict["bert_input_ids"] = bert_input_ids.astype(np.int64)
+                data_dict["bert_token_type_ids"] = bert_token_type_ids.astype(np.int64)
+                data_dict["bert_attention_mask"] = bert_attention_mask.astype(np.int64)
+            data_dict["lang_len"] = np.array(lang_len).astype(
+                np.int64)  # length of each description
+            data_dict["center_label"] = target_bboxes.astype(
+                np.float32)[:, 0:3]  # (MAX_NUM_OBJ, 3) for GT box center XYZ
+            # (MAX_NUM_OBJ,) with int values in 0,...,NUM_HEADING_BIN-1
+            #data_dict["heading_class_label"] = angle_classes.astype(np.int64)  --> AlWAYS 0 and not needed
+            #data_dict["heading_residual_label"] = angle_residuals.astype(
+                #np.float32)  # (MAX_NUM_OBJ,)
+            # (MAX_NUM_OBJ,) with int values in 0,...,NUM_SIZE_CLUSTER
+            data_dict["size_class_label"] = size_classes.astype(np.int64)
+            data_dict["size_residual_label"] = size_residuals.astype(
+                np.float32)  # (MAX_NUM_OBJ, 3)
+            data_dict["num_bbox"] = np.array(num_bbox).astype(np.int64)
+            data_dict["sem_cls_label"] = target_bboxes_semcls.astype(
+                np.int64)  # (MAX_NUM_OBJ,) semantic class index
+            # (MAX_NUM_OBJ) as 0/1 with 1 indicating a unique box
+            data_dict["box_label_mask"] = target_bboxes_mask.astype(np.float32)
+            # data_dict["vote_label"] = point_votes.astype(np.float32)
+            # data_dict["vote_label_mask"] = point_votes_mask.astype(np.int64)
+            data_dict["scan_idx"] = np.array(idx).astype(np.int64)
+            data_dict["pcl_color"] = pcl_color
+            data_dict["ref_box_label"] = ref_box_label.astype(
+                np.int64)  # 0/1 reference labels for each object bbox
+            # data_dict["ref_box_label"] = ref_box_label.astype(
+            #     np.int64)  # 0/1 reference labels for each object bbox
+            data_dict["ref_center_label"] = ref_center_label.astype(np.float32)
+            data_dict["ref_heading_class_label"] = np.array(
+                int(ref_heading_class_label)).astype(np.int64)
+            data_dict["ref_heading_residual_label"] = np.array(
+                int(ref_heading_residual_label)).astype(np.int64)
+            data_dict["ref_size_class_label"] = np.array(
+                int(ref_size_class_label)).astype(np.int64)
+            data_dict["ref_size_residual_label"] = ref_size_residual_label.astype(
+                np.float32)
+            data_dict["object_id"] = np.array(int(object_id)).astype(np.int64)
+            data_dict["ann_id"] = np.array(int(ann_id)).astype(np.int64)
+            data_dict["object_cat"] = np.array(object_cat).astype(np.int64)
+            data_dict["unique_multiple"] = np.array(
+                self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]).astype(np.int64)
+            # data_dict["pcl_color"] = pcl_color
+            data_dict["load_time"] = time.time() - start
+        else:
+            data_dict["point_cloud_dims_min"] = point_cloud_dims_min.astype(
+                np.float32)
+            data_dict["point_cloud_dims_max"] = point_cloud_dims_max.astype(
+                np.float32)
+            data_dict["point_clouds"] = point_cloud.astype(
+                np.float32)  # point cloud data including features
+            data_dict["lang_feat"] = lang_feat.astype(
+                np.float32)  # language feature vectors
+            if self.use_bert:
+                data_dict["bert_input_ids"] = bert_input_ids.astype(np.int64)
+                data_dict["bert_token_type_ids"] = bert_token_type_ids.astype(np.int64)
+                data_dict["bert_attention_mask"] = bert_attention_mask.astype(np.int64)
+            data_dict["lang_len"] = np.array(lang_len).astype(
+                np.int64)  # length of each description
+            data_dict["size_class_label"] = size_classes.astype(np.int64) # ground truth size class for 3detr
+            data_dict["size_residual_label"] = size_residuals.astype(
+                np.float32)  # (MAX_NUM_OBJ, 3), ground truth size residual for 3detr
+            data_dict["num_bbox"] = np.array(num_bbox).astype(np.int64)
+            data_dict["sem_cls_label"] = target_bboxes_semcls.astype(
+                np.int64)  # (MAX_NUM_OBJ,) semantic class ground truth for 3detr
+            data_dict["box_label_mask"] = target_bboxes_mask.astype(np.float32)
+            data_dict["scan_idx"] = np.array(idx).astype(np.int64)
+            data_dict["pcl_color"] = pcl_color
+            data_dict["object_id"] = np.array(int(object_id)).astype(np.int64)
+            data_dict["ann_id"] = np.array(int(ann_id)).astype(np.int64)
+            data_dict["object_cat"] = np.array(object_cat).astype(np.int64)
+            data_dict["unique_multiple"] = np.array(
+                self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]).astype(np.int64)
+            data_dict["load_time"] = time.time() - start
 
         return data_dict
 
