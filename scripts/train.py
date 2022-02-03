@@ -399,7 +399,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")
     parser.add_argument("--use_two_optim", action="store_true", help="Use 2 separate optimizers for detection and reference part.")
-    parser.add_argument("--lang_num_max", type=int, default=8, help="Number of descriptions that are used per one scene.")
+    parser.add_argument("--lang_num_max", type=int, default=1, help="Number of descriptions that are used per one scene.")
 
     #################################### [start] 3detr arguments #######################################
     parser.add_argument("--optimizer", default="AdamW", choices=["AdamW", "Adam"], help="Switch between AdamW and Adam.")
