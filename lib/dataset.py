@@ -44,7 +44,7 @@ class ScannetReferenceDataset(Dataset):
                  scanrefer_new=None,
                  split="train",
                  num_points=40000,
-                 lang_num_max=32,
+                 lang_num_max=1,
                  use_height=False,
                  use_color=False,
                  use_normal=False,
