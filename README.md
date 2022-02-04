@@ -1,6 +1,6 @@
 # TransformerVG: 3D Visual Grounding with Transformers
 
-This repository is for the TransformerVG research project and 9st method on ScanRefer benchmark [paper].
+This repository is for the TransformerVG research project and 9th method on ScanRefer benchmark [paper].
 
 <p align="center"><img src="demo/ScanRefer.gif" width="600px"/></p>
 
