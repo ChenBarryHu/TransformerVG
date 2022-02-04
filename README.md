@@ -2,7 +2,7 @@
 
 This repository is for the TransformerVG research project and 9th method on ScanRefer benchmark [paper].
 
-<p align="center"><img src="demo/2022-01-31_3D-VG-Transformers-Poster.png" width="600px"/></p>
+<p align="center"><img src="demo/2022-01-31_3D-VG-Transformers-Poster.png" width="1050px"/></p>
 
 ## Introduction
 In this project we perform the task of 3D visual grounding using an architecture that utilizes transformers. Existing approaches to this problem use an object detection module based on VoteNet and a fusion module, that fuses language features with the detected object features to predictthe final confidence scores. We propose TransformerVG, a transformer-based visual grounding pipeline that combines the 3DETR object detector with the transformer-based fusion model from the 3DVG pipeline. Through extensive experiments, we outperform the ScanRefer baseline in the Acc@50 metric by 6% on the Benchmark.
@@ -72,7 +72,7 @@ python batch_load_scannet_data.py
 > python visualize.py --scene_id scene0000_00
 > ```
 <!-- 5. (Optional) Download the preprocessed [multiview features (~36GB)](http://kaldir.vc.in.tum.de/enet_feats.hdf5) and put it under `data/scannet/scannet_data/`. -->
-5. (Optional) Pre-process the multiview features from ENet. 
+5. Pre-process the multiview features from ENet. 
 
     a. Download [the ENet pretrained weights (1.4MB)](http://kaldir.vc.in.tum.de/ScanRefer/scannetv2_enet.pth) and put it under `data/`
     
@@ -117,14 +117,12 @@ Note that the flags must match the ones set before training. The training inform
 
 ### Pretrained Weights
 For reproducing our results in the paper, we provide the following training commands and the corresponding pre-trained models:
-1. Download the weight and extract the zip file under the **outputs** folder in your directory 
-Link to the **[weight]<https://drive.google.com/file/d/1VMng8hs0oaYNXK7aejWh6oB6hn2EZWuO/view?usp=sharing>**
+1. Download the **[weight](https://drive.google.com/file/d/1VMng8hs0oaYNXK7aejWh6oB6hn2EZWuO/view?usp=sharing)** and extract the zip file under the **outputs** folder in your directory.
 
 2. Execute the following command:
 ```shell
 python scripts/train.py --lang_type gru --use_multiview --use_height --use_normal --dataset_num_workers <dataset_num_workers> --batch_size <batch_size> --use_att_mask --use_pretrained l20_old_dataset_logic
 ```
-Link to the **[weight]<https://drive.google.com/file/d/1VMng8hs0oaYNXK7aejWh6oB6hn2EZWuO/view?usp=sharing>**
 ## Changelog
 
 01/29/2022: Released the TransformerVG.
@@ -134,6 +132,7 @@ Link to the **[weight]<https://drive.google.com/file/d/1VMng8hs0oaYNXK7aejWh6oB6
 This work is a research project conducted by Erik Schütz and Shichen Hu for ADL4CV:Visual Computing course at the Technical University of Munich.
 
 We acknowledge that our work is based on ScanRefer, 3DETR and 3DVG-Transformer:
+
 https://github.com/daveredrum/ScanRefer
 https://github.com/facebookresearch/3detr
 https://openaccess.thecvf.com/content/ICCV2021/papers/Zhao_3DVG-Transformer_Relation_Modeling_for_Visual_Grounding_on_Point_Clouds_ICCV_2021_paper.pdf 
