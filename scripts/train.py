@@ -74,20 +74,34 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
     #Use description pairing only for training split and use only one description for validation.
     if split == "train":
         scanrefer_new = split_scene_new(scanrefer_data=scanrefer[split], lang_num_max=args.lang_num_max)
+        dataset = ScannetReferenceDataset(
+            scanrefer=scanrefer[split],
+            scanrefer_all_scene=all_scene_list,
+            scanrefer_new=scanrefer_new,
+            split=split,
+            lang_num_max=args.lang_num_max,
+            num_points=args.num_points,
+            use_height=args.use_height,
+            use_color=args.use_color,
+            use_normal=args.use_normal,
+            use_multiview=args.use_multiview,
+            use_bert=(args.lang_type == "bert")
+        )
     else:
         scanrefer_new = split_scene_new(scanrefer_data=scanrefer[split], lang_num_max=1)
-    dataset = ScannetReferenceDataset(
-        scanrefer=scanrefer[split], 
-        scanrefer_all_scene=all_scene_list,
-        scanrefer_new=scanrefer_new,
-        split=split, 
-        num_points=args.num_points, 
-        use_height=args.use_height,
-        use_color=args.use_color, 
-        use_normal=args.use_normal, 
-        use_multiview=args.use_multiview,
-        use_bert=(args.lang_type=="bert")
-    )
+        dataset = ScannetReferenceDataset(
+            scanrefer=scanrefer[split],
+            scanrefer_all_scene=all_scene_list,
+            scanrefer_new=scanrefer_new,
+            split=split,
+            lang_num_max=1,
+            num_points=args.num_points,
+            use_height=args.use_height,
+            use_color=args.use_color,
+            use_normal=args.use_normal,
+            use_multiview=args.use_multiview,
+            use_bert=(args.lang_type == "bert")
+        )
     # FIXME: change the num_worker based on the machine type
     
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.dataset_num_workers)
@@ -399,7 +413,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")
     parser.add_argument("--use_two_optim", action="store_true", help="Use 2 separate optimizers for detection and reference part.")
-    parser.add_argument("--lang_num_max", type=int, default=8, help="Number of descriptions that are used per one scene.")
+    parser.add_argument("--lang_num_max", type=int, default=1, help="Number of descriptions that are used per one scene.")
 
     #################################### [start] 3detr arguments #######################################
     parser.add_argument("--optimizer", default="AdamW", choices=["AdamW", "Adam"], help="Switch between AdamW and Adam.")
