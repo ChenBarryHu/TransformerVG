@@ -2,14 +2,14 @@
 
 This repository is for the TransformerVG research project and 9th method on ScanRefer benchmark [paper].
 
-<p align="center"><img src="demo/ScanRefer.gif" width="600px"/></p>
+<p align="center"><img src="demo/2022-01-31_3D-VG-Transformers-Poster.png" width="600px"/></p>
 
 ## Introduction
 In this project we perform the task of 3D visual grounding using an architecture that utilizes transformers. Existing approaches to this problem use an object detection module based on VoteNet and a fusion module, that fuses language features with the detected object features to predictthe final confidence scores. We propose TransformerVG, a transformer-based visual grounding pipeline that combines the 3DETR object detector with the transformer-based fusion model from the 3DVG pipeline. Through extensive experiments, we outperform the ScanRefer baseline in the Acc@50 metric by 6% on the Benchmark.
 
 
 ## News
-2022-01-29 We achieve 9th place in ScanRefer leaderboard
+2022-01-29 We achieve 9th place in ScanRefer leaderboard :fire: :fire: :fire:
 
 
 ## Dataset
@@ -115,6 +115,16 @@ python scripts/visualize.py --folder <folder_name> --scene_id <scene_id> --use_m
 ```
 Note that the flags must match the ones set before training. The training information is stored in `outputs/<folder_name>/info.json`. The output `.ply` files will be stored under `outputs/<folder_name>/vis/<scene_id>/`
 
+### Pretrained Weights
+For reproducing our results in the paper, we provide the following training commands and the corresponding pre-trained models:
+1. Download the weight and extract the zip file under the **outputs** folder in your directory 
+Link to the **[weight]<https://drive.google.com/file/d/1VMng8hs0oaYNXK7aejWh6oB6hn2EZWuO/view?usp=sharing>**
+
+2. Execute the following command:
+```shell
+python scripts/train.py --lang_type gru --use_multiview --use_height --use_normal --dataset_num_workers <dataset_num_workers> --batch_size <batch_size> --use_att_mask --use_pretrained l20_old_dataset_logic
+```
+Link to the **[weight]<https://drive.google.com/file/d/1VMng8hs0oaYNXK7aejWh6oB6hn2EZWuO/view?usp=sharing>**
 ## Changelog
 
 01/29/2022: Released the TransformerVG.
