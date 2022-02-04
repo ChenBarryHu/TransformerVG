@@ -5,7 +5,7 @@ This repository is for the TransformerVG research project and 9th method on Scan
 <p align="center"><img src="demo/2022-01-31_3D-VG-Transformers-Poster.png" width="1050px"/></p>
 
 ## Introduction
-In this project we perform the task of 3D visual grounding using an architecture that utilizes transformers. Existing approaches to this problem use an object detection module based on VoteNet and a fusion module, that fuses language features with the detected object features to predictthe final confidence scores. We propose TransformerVG, a transformer-based visual grounding pipeline that combines the 3DETR object detector with the transformer-based fusion model from the 3DVG pipeline. Through extensive experiments, we outperform the ScanRefer baseline in the Acc@50 metric by 6% on the Benchmark.
+In this project we perform the task of 3D visual grounding using an architecture that utilizes transformers. Existing approaches to this problem use an object detection module based on VoteNet and a fusion module, that fuses language features with the detected object features to predictthe final confidence scores. We propose TransformerVG, a transformer-based visual grounding pipeline that combines the 3DETR object detector with the transformer-based fusion model from the 3DVG pipeline. Through extensive experiments, we outperform the ScanRefer baseline in the Acc@50 metric by 6%, and achieved competitive results on the Benchmark. [**Link to the technical report**](https://github.com/ChenBarryHu/TransformerVG/blob/master/docs/TransformerVG_3D_Visual_Grounding_with_Transformer.pdf) 
 
 
 ## News
